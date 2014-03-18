@@ -1,1 +1,0 @@
-C:\Users\Alexander Riccio\SetBrightCSharp\ConsoleApplication3\ConsoleApplication3\bin\Release\Brightness.exe.config
