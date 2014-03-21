@@ -35,7 +35,7 @@ namespace DisplayBrightnessConsole {
                 moc =     mos.Get( );
 
                 foreach ( System.Management.ManagementObject o in moc ) {
-                    curBrightness = Convert.ToInt32( Convert.ToString( o.GetPropertyValue( "CurrentBrightness" ) ) );
+                    curBrightness = Convert.ToInt32( o.GetPropertyValue( "CurrentBrightness" ) );
                     break; //only work on the first object
                     }
                 }
@@ -151,7 +151,6 @@ namespace DisplayBrightnessConsole {
                 tray.Visible = true;
 
                 #region noargs
-
                 if ( args.Length == 0 ) {
                     tray.ShowBalloonTip( 1000, "SetBright? SleepTight!", "version " + BaseConst.GetVersion() + " works, yo", ToolTipIcon.Info );
                     Console.WriteLine( "DEBUG: Current brightness: " + GetBrightness( ) );
@@ -162,11 +161,9 @@ namespace DisplayBrightnessConsole {
                     mapBright( hour, min );
                     System.Threading.Thread.Sleep( 1000 );
                     }
-
                 #endregion noargs
 
                 #region getlevels
-
                 else if ( args[ 0 ] == "-getlevels" ) {
                     int[] BrightnessLevels = GetBrightnessLevels( );
                     Console.Write( "This monitor supports " + ( BrightnessLevels.Length ) + " brightness levels: " );
@@ -176,7 +173,6 @@ namespace DisplayBrightnessConsole {
                         }
                     
                     }
-
                 #endregion getlevels
 
                 else if ( args[ 0 ] == "-getwmiinfo" ) {
