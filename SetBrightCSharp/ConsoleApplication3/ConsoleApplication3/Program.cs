@@ -53,32 +53,24 @@ namespace DisplayBrightnessConsole {
             System.Management.ManagementObjectSearcher      mos = null;
             System.Management.ManagementObjectCollection    moc = null;
 
-            int[] retBrightnessLevels = null;
+            int[] BrightnessLevels = new int[ 0 ];//store result
             try {
                 s   = new System.Management.ManagementScope( "root\\WMI" );
                 q   = new System.Management.SelectQuery( "WmiMonitorBrightness" );
                 mos = new System.Management.ManagementObjectSearcher( s, q );
                 moc = mos.Get( );
 
-                byte[] BrightnessLevels = new byte[ 0 ];//store result
-
                 foreach ( System.Management.ManagementObject o in moc ) {
                     Console.Write( " " + o + "; " );
-                    BrightnessLevels = ( byte[ ] )o.GetPropertyValue( "Level" );
+                    BrightnessLevels = ( int[ ] )o.GetPropertyValue( "Level" );
                     break; //only work on the first object
-                    }
-                
-                retBrightnessLevels = new int[ BrightnessLevels.Length ];
-                
-                for ( int i  = 0; i < BrightnessLevels.Length; i++ ) {
-                    retBrightnessLevels[ i ] = Convert.ToInt32( BrightnessLevels[ i ] );
-                    }
+                    }                
                 }
             finally {
                 mos.Dispose( );
                 moc.Dispose( );
                 }
-            return retBrightnessLevels;
+            return BrightnessLevels;
             }
 
         
@@ -139,6 +131,23 @@ namespace DisplayBrightnessConsole {
                 moc.Dispose( );
                 mos.Dispose( );
                 }
+            }
+
+        private static void setBrightnessLevelFromGivenArgumentOnCommandLine( int targetBrightness ) {
+            if ( targetBrightness > 100 || targetBrightness < 0 ) //handles the wtf case where brightness is more than 100 or less than zero
+                            {
+                Console.WriteLine( "What the hell?? Target brightness \"" + targetBrightness + "\" out of bounds!" );
+
+                int i = ( targetBrightness > 100 ? 100 : 0 );
+                SetBrightness( i );
+
+                Console.WriteLine( "Brightness set to: \"" + i + "\" instead!" );
+                return;
+                }
+
+            SetBrightness( targetBrightness );
+            Console.WriteLine( "Current Brightness: " + GetBrightness( ) );
+
             }
 
         [STAThread]
@@ -223,19 +232,7 @@ namespace DisplayBrightnessConsole {
                         return;
                         } 
                     if ( res == true ) {
-                        if ( targetBrightness > 100 || targetBrightness < 0 ) //handles the wtf case where brightness is more than 100 or less than zero
-                            {
-                            Console.WriteLine( "What the hell?? Target brightness \"" + targetBrightness + "\" out of bounds!" );
-                        
-                            int i = ( targetBrightness > 100 ? 100 : 0 );
-                            SetBrightness( i );
-                            
-                            Console.WriteLine( "Brightness set to: \"" + i + "\" instead!" );
-                            return;
-                            }
-
-                        SetBrightness( targetBrightness );
-                        Console.WriteLine( "Current Brightness: " + GetBrightness( ) );
+                        setBrightnessLevelFromGivenArgumentOnCommandLine( targetBrightness );
                         }
                     }
                 }
