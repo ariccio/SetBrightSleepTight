@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Text.RegularExpressions;
+//using System.Text.RegularExpressions;
 using System.Windows.Forms;
 
 //EL GPL LICENCE, MOFOs
@@ -16,7 +16,7 @@ namespace DisplayBrightnessConsole {
             return Version;
             }
         private static readonly int[]  HourBright = { 22, 44, 54, 76, 83, 92, 97, 100 };
-        private const double Version    = 0.3;
+        private const double Version    = 0.4;
         }
 
     internal class Program {
@@ -73,17 +73,6 @@ namespace DisplayBrightnessConsole {
             return BrightnessLevels;
             }
 
-        private static void writeClassPath_Container_Options_Path_Properties_Qualifiers_Scope_Site_SystemProperties_ToConsole( System.Management.ManagementObject o ) {
-            //Console.WriteLine( o.ClassPath        );
-            //Console.WriteLine( o.Container        );
-            //Console.WriteLine( o.Options          );
-            Console.WriteLine("PATH: " + o.Path             );
-            //Console.WriteLine( o.Properties       );
-            //Console.WriteLine( o.Qualifiers       );
-            //Console.WriteLine( o.Scope            );
-            //Console.WriteLine( o.Site             );
-            //Console.WriteLine( o.SystemProperties );
-            }
         private static void displayWMIInfo( ) {
             System.Management.ManagementScope               s   = null;
             System.Management.SelectQuery                   q   = null;
@@ -102,46 +91,12 @@ namespace DisplayBrightnessConsole {
 
                 foreach ( System.Management.ManagementObject o in moc ) {
                     Console.WriteLine( "PATH: " + o.Path );
-                    //writeClassPath_Container_Options_Path_Properties_Qualifiers_Scope_Site_SystemProperties_ToConsole( o );
                     List<string> newget = new List<string>( );
-
-                    //Console.WriteLine( o.GetPropertyValue( "__RELPATH" ) );
-                    //Console.WriteLine( o.GetPropertyValue( "__PATH"    ) );
-                    
-                    newget.Add( o.GetText( System.Management.TextFormat.Mof      ) );
-                    //newget.Add( o.GetText( System.Management.TextFormat.CimDtd20 ) );
-                    //newget.Add( o.GetText( System.Management.TextFormat.WmiDtd20 ) );
+                    newget.Add( o.GetText( System.Management.TextFormat.Mof ) );
                     Console.WriteLine( "--------------------------------" );
                     foreach ( string n in newget ) {
-                        //Console.WriteLine( "ass" );
                         Console.WriteLine( n );
-                        //Console.WriteLine( "------" );
                         }
-                    //Console.WriteLine( "--------------------------------" );
-                    //string newget3 = o.GetText( System.Management.TextFormat.WmiDtd20 );
-                    
-                    //string[] newgetwords3 = Regex.Split( newget3, ">" );
-                    //string[][] lesstrings = new string[ 1 ][ ] { newgetwords3 };
-
-                    //Console.WriteLine( );
-                    //Console.WriteLine( );
-
-                    //for ( int b = 0; b < lesstrings.Length; b++ ) {
-                    //    //foreach ( string n in lesstrings[ b ] ) {
-                    //    //    Console.WriteLine( ">" );
-                    //    //    Console.Write( n );
-                    //    //    }
-                    //for ( int n = 0; n < lesstrings[ b ].Length; n++ ) {
-                    //    for ( int x = 0; x < n; x++ ) {
-                    //            Console.Write("\t");
-                    //            }
-                    //        Console.Write( ">" );
-                    //        Console.Write( lesstrings[b][n] );
-                    //        }
-                    //    Console.WriteLine( );
-                    //    }
-                    //Console.WriteLine( o.GetPropertyQualifierValue( "Active",       "CIMTYPE" ) );
-                    //Console.WriteLine( o.GetPropertyQualifierValue( "InstanceName", "CIMTYPE" ) );
                     }
                 }
 
@@ -153,7 +108,7 @@ namespace DisplayBrightnessConsole {
 
         private static void setBrightnessLevelFromGivenArgumentOnCommandLine( int targetBrightness ) {
             if ( targetBrightness > 100 || targetBrightness < 0 ) //handles the wtf case where brightness is more than 100 or less than zero
-                            {
+                                {
                 Console.WriteLine( "What the hell?? Target brightness \"" + targetBrightness + "\" out of bounds!" );
 
                 int i = ( targetBrightness > 100 ? 100 : 0 );
@@ -162,21 +117,21 @@ namespace DisplayBrightnessConsole {
                 Console.WriteLine( "Brightness set to: \"" + i + "\" instead!" );
                 return;
                 }
-
-            SetBrightness( targetBrightness );
-            Console.WriteLine( "Current Brightness: " + GetBrightness( ) );
-
+            else {
+                SetBrightness( targetBrightness );
+                //Console.WriteLine( "Current Brightness: " + GetBrightness( ) );
+                }
             }
 
         private static void setBrightnessLevelToDefaultForCurrentTime( NotifyIcon tray ) {
-            tray.ShowBalloonTip( 1000, "SetBright? SleepTight!", "version " + BaseConst.GetVersion( ) + " works, yo", ToolTipIcon.Info );
-            Console.WriteLine( "DEBUG: Current brightness: " + GetBrightness( ) );
+            
+            Console.WriteLine( "Current brightness: " + GetBrightness( ) );
 
             int hour = DateTime.Now.Hour;
             int min  = DateTime.Now.Minute;
 
             mapBright( hour, min );
-            System.Threading.Thread.Sleep( 1000 );
+            tray.ShowBalloonTip( 1000, "SetBright? SleepTight!", "version " + BaseConst.GetVersion( ) + " works, yo", ToolTipIcon.Info );
             }
 
         private static void writeSupportedBrightnessLevelsToConsole( ) {
@@ -221,50 +176,36 @@ namespace DisplayBrightnessConsole {
                 tray.Icon    = SystemIcons.Application;
                 tray.Visible = true;
 
-                #region noargs
                 if ( args.Length == 0 ) {
                     setBrightnessLevelToDefaultForCurrentTime( tray );
                     }
-                #endregion noargs
 
-                #region getlevels
                 else if ( args[ 0 ] == "-getlevels" ) {
                     writeSupportedBrightnessLevelsToConsole( );
                     }
-                #endregion getlevels
 
                 else if ( args[ 0 ] == "-getwmiinfo" ) {
                     displayWMIInfo( );
                     }
 
-                #region loop
-
                 else if ( args[ 0 ] == "-loop" ){
                     preformTestSequence( );
                     }
-
-                #endregion loop
-
-                #region time
 
                 else if ( args[ 0 ] == "-time" ) {
                 writeCurrentTimeToConsole( );
                     }
 
-                #endregion time
-
                 else//assumes number was input as an input, i.e. "brightness.exe 100"
                 {
                     int targetBrightness;
-                    bool res = int.TryParse( args[ 0 ], out targetBrightness );
-
-                    if ( res == false ) {
+                    if ( int.TryParse( args[ 0 ], out targetBrightness ) ) {
+                        setBrightnessLevelFromGivenArgumentOnCommandLine( targetBrightness );
+                        }
+                    else {
                         Console.WriteLine( "Invalid input!, please try again" );
                         return;
                         } 
-                    if ( res == true ) {
-                        setBrightnessLevelFromGivenArgumentOnCommandLine( targetBrightness );
-                        }
                     }
                 }
             finally {
@@ -273,7 +214,7 @@ namespace DisplayBrightnessConsole {
             }
 
         private static void mapBright( int hourNow, int minuteNow ) {
-            if ( hourNow < 8 || hourNow > 15 ) {
+            if ( hourNow < 8 || hourNow > 19 ) {
                 Console.Write( "night time! Setting brightness -> 0! " );
                 SetBrightness( 0 );
                 }
@@ -328,7 +269,7 @@ namespace DisplayBrightnessConsole {
 
                 String targetBrightnessStr = targetBrightness.ToString( );
 
-                tray.ShowBalloonTip( 1000, "Setting Brightness: ", targetBrightnessStr, ToolTipIcon.Info );
+                //tray.ShowBalloonTip( 100, "Setting Brightness: ", targetBrightnessStr, ToolTipIcon.Info );
 
                 s   =     new System.Management.ManagementScope( "root\\WMI" );
                 q   =     new System.Management.SelectQuery( "WmiMonitorBrightnessMethods" );
