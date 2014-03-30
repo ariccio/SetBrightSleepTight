@@ -1,4 +1,7 @@
 //Additional dependency? wbemuuid.lib
+#define _CRT_SECURE_CPP_OVERLOAD_STANDARD_NAMES 1
+#pragma strict_gs_check(on)
+
 #include "ConsoleApplication1.h"
 
 #include <objbase.h>
@@ -25,6 +28,11 @@ void printError( char msg[ ] ) {
 	cout << endl << msg << "--Failed with error: " << eNum << " (" << sysMsg << ")" << endl << endl;
 	}
 
+void printError() {
+	char msg[1] = { };
+	printError( msg );
+	}
+
 
 bool ddcGetBrightness ( int getBrightInt ) {
 	HMONITOR hMonitor = NULL;
@@ -41,26 +49,37 @@ bool ddcGetBrightness ( int getBrightInt ) {
 
 	//LPSTR pszASCIICapabilitiesString = NULL;
 
+	DWORD cchStringLength = NULL;
+	//cchStringLength = NULL;
+	//C6102 warning BUG? http://www.beta.microsoft.com/VisualStudio/feedback/details/812312/incorrect-code-analysis-warning-c6102
 
-	DWORD cchStringLength = 0;
-	BOOL getCapabilitiesStringLengthSuccess = GetCapabilitiesStringLength ( hMonitor, &cchStringLength );
+	if ( GetCapabilitiesStringLength( hMonitor, &cchStringLength ) ) {
+		cout << "GetCapabilitiesStringLength Succeeded!!" << endl;
+#pragma warning(suppress: 6102)
+		if ( ( cchStringLength > 0 ) && ( cchStringLength != NULL ) ) {
+			LPSTR szCapabilitiesString = ( LPSTR ) malloc( cchStringLength );
 
-	if ( getCapabilitiesStringLengthSuccess && (cchStringLength != (NULL|| 0)) ) {
+			if ( szCapabilitiesString != NULL ) {
 
-		LPSTR szCapabilitiesString = ( LPSTR ) malloc ( cchStringLength );
+				BOOL capabilitiesRequestAndCapabilitiesReplySucces = CapabilitiesRequestAndCapabilitiesReply( hwnd, szCapabilitiesString, cchStringLength );
 
-		if ( szCapabilitiesString != NULL) {
+				if ( capabilitiesRequestAndCapabilitiesReplySucces ) { cout << "szCapabilitiesString: " << szCapabilitiesString << endl; }
 
-			BOOL capabilitiesRequestAndCapabilitiesReplySucces = CapabilitiesRequestAndCapabilitiesReply ( hwnd, szCapabilitiesString, cchStringLength);
-
-			if ( capabilitiesRequestAndCapabilitiesReplySucces ) { cout << "szCapabilitiesString: " << szCapabilitiesString << endl; }
-			
-			else												 { cout << "CapabilitiesRequestAndCapabilitiesReply failed!" << endl; }
+				else { cout << "CapabilitiesRequestAndCapabilitiesReply failed!" << endl; }
+				}
+			else { cout << "Failed before CapabilitiesRequestAndCapabilitiesReply (because szCapabilitiesString == NULL)!!" << endl; }
+			}
+		else {
+			cout << "\t...but cchStringLength was invalid" << endl;
+			cout << "\tinvalid cchStringLength: '" << cchStringLength << "'" << endl;
+			cout << "\tfull windows error message: " << endl;
+			printError();
+			}
 		}
-		else { cout << "Failed before CapabilitiesRequestAndCapabilitiesReply (because szCapabilitiesString == NULL)!!" << endl; }
-	}
 	else {
 		cout << "Failed to GetCapabilitiesStringLength!!" << endl;
+		cout << "\full windows error message: " << endl;
+		printError( );
 		return false;
 		}
 	BOOL getBSuccess = GetMonitorBrightness ( hMonitor, &pdwMinimumBrightness, &pdwCurrentBrightness, &pdwMaximumBrightness );
@@ -84,9 +103,9 @@ bool ddcGetBrightness ( int getBrightInt ) {
 bool ddcSetBrightness ( DWORD dwNewBrightness) {
 	HMONITOR hMonitor = NULL;
 
-	DWORD pdwMinimumBrightness = 0;
-	DWORD pdwCurrentBrightness = 0;
-	DWORD pdwMaximumBrightness = 0;
+	//DWORD pdwMinimumBrightness = 0;
+	//DWORD pdwCurrentBrightness = 0;
+	//DWORD pdwMaximumBrightness = 0;
 
 	HWND hwnd = FindWindow( NULL, NULL );
 	cout << "Window handle: " << hwnd << endl;
@@ -391,6 +410,7 @@ bool SetBrightness( int val ) {
 		
 		if ( hr != WBEM_S_NO_ERROR ) {
 			cout << "\tSomething went wrong in pObj->Get!" << endl;
+			bRet = false;
 			goto cleanup;
 			}
 		
@@ -414,11 +434,11 @@ bool SetBrightness( int val ) {
 		SysFreeString( ArgName1   );
 		SysFreeString( bstrQuery  );
 
-		if ( pClass		)		{ pClass->Release( );		}
-		if ( pInInst	)		{ pInInst->Release( );		}
-		if ( pInClass	)		{ pInClass->Release( );		}
-		if ( pLocator	)		{ pLocator->Release( );		}
-		if ( pNamespace )		{ pNamespace->Release( );	}
+		if ( pClass		)	{ pClass->Release( );	 }
+		if ( pInInst	)	{ pInInst->Release( );   }
+		if ( pInClass	)	{ pInClass->Release( );  }
+		if ( pLocator	)	{ pLocator->Release( );  }
+		if ( pNamespace )	{ pNamespace->Release( );}
 	
 		CoUninitialize ( );
 

@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Drawing;
 //using System.Text.RegularExpressions;
 using System.Windows.Forms;
-
+//Consider using AppDomains for parsing?
 //EL GPL LICENCE, MOFOs
 [assembly: CLSCompliant( true )]
 namespace DisplayBrightnessConsole {
