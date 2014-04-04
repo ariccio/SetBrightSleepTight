@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Drawing;
+//using System.Drawing;
 //using System.Text.RegularExpressions;
-using System.Windows.Forms;
+//using System.Windows.Forms;
 //Consider using AppDomains for parsing?
 //EL GPL LICENCE, MOFOs
 [assembly: CLSCompliant( true )]
@@ -16,7 +16,7 @@ namespace DisplayBrightnessConsole {
             return Version;
             }
         private static readonly int[]  HourBright = { 22, 44, 54, 76, 83, 92, 97, 100 };
-        private const double Version    = 0.4;
+        private const double Version    = 0.45;
         }
 
     internal class Program {
@@ -123,7 +123,8 @@ namespace DisplayBrightnessConsole {
                 }
             }
 
-        private static void setBrightnessLevelToDefaultForCurrentTime( NotifyIcon tray ) {
+        //private static void setBrightnessLevelToDefaultForCurrentTime( NotifyIcon tray ) {
+        private static void setBrightnessLevelToDefaultForCurrentTime( ) {
             
             Console.WriteLine( "Current brightness: " + GetBrightness( ) );
 
@@ -131,7 +132,7 @@ namespace DisplayBrightnessConsole {
             int min  = DateTime.Now.Minute;
 
             mapBright( hour, min );
-            tray.ShowBalloonTip( 1000, "SetBright? SleepTight!", "version " + BaseConst.GetVersion( ) + " works, yo", ToolTipIcon.Info );
+            //tray.ShowBalloonTip( 1000, "SetBright? SleepTight!", "version " + BaseConst.GetVersion( ) + " works, yo", ToolTipIcon.Info );
             }
 
         private static void writeSupportedBrightnessLevelsToConsole( ) {
@@ -170,14 +171,15 @@ namespace DisplayBrightnessConsole {
         [STAThread]
         private static void Main( string[ ] args ) {
             Console.WriteLine( "version " + BaseConst.GetVersion() + "\n" );
-            NotifyIcon tray = null;
+            //NotifyIcon tray = null;
             try {
-                tray         = new NotifyIcon( );
-                tray.Icon    = SystemIcons.Application;
-                tray.Visible = true;
+                //tray         = new NotifyIcon( );
+                //tray.Icon    = SystemIcons.Application;
+                //tray.Visible = true;
 
                 if ( args.Length == 0 ) {
-                    setBrightnessLevelToDefaultForCurrentTime( tray );
+                    //setBrightnessLevelToDefaultForCurrentTime( tray );
+                    setBrightnessLevelToDefaultForCurrentTime( );
                     }
 
                 else if ( args[ 0 ] == "-getlevels" ) {
@@ -209,7 +211,7 @@ namespace DisplayBrightnessConsole {
                     }
                 }
             finally {
-                tray.Dispose( );
+                //tray.Dispose( );
                 }
             }
 
@@ -254,7 +256,7 @@ namespace DisplayBrightnessConsole {
             }
 
         private static void SetBrightness( int targetBrightness ) {
-            NotifyIcon tray = null;
+            //NotifyIcon tray = null;
             System.Management.ManagementScope               s   = null;
             System.Management.SelectQuery                   q   = null;
             System.Management.ManagementObjectSearcher      mos = null;
@@ -263,11 +265,11 @@ namespace DisplayBrightnessConsole {
             try {
                 Console.WriteLine( "Setting Brightness: " + targetBrightness );
 
-                tray         = new NotifyIcon( );
-                tray.Icon    = SystemIcons.Application;
-                tray.Visible = true;
+                //tray         = new NotifyIcon( );
+                //tray.Icon    = SystemIcons.Application;
+                //tray.Visible = true;
 
-                String targetBrightnessStr = targetBrightness.ToString( );
+                //String targetBrightnessStr = targetBrightness.ToString( );
 
                 //tray.ShowBalloonTip( 100, "Setting Brightness: ", targetBrightnessStr, ToolTipIcon.Info );
 
@@ -286,7 +288,7 @@ namespace DisplayBrightnessConsole {
             finally {
                 moc.Dispose( );
                 mos.Dispose( );
-                tray.Dispose( );
+                //tray.Dispose( );
                 }
             }
         }
