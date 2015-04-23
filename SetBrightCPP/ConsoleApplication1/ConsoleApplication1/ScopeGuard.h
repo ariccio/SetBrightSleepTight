@@ -6,7 +6,7 @@
 #define SCOPEGUARD_H_INCLUDED
 
 #include <windows.h>
-
+#include <type_traits>
 
 #ifndef SCOPEGUARD_INSTANCE
 #define SCOPEGUARD_INSTANCE( func ) scopeGuard( (func), __FILE__, __FUNCSIG__, __LINE__ )
@@ -45,7 +45,7 @@ class ScopeGuard final {
 #endif
 
 	public:
-	__forceinline ScopeGuard( Fun f, _In_z_ PCSTR const file_name_in, _In_z_ PCSTR const func_name_in, _In_ _In_range_( 0, INT_MAX ) const int line_number_in ) : function_to_call_on_scope_exit{ std::move( f ) }, active_{ true }
+	ScopeGuard( Fun f, _In_z_ PCSTR const file_name_in, _In_z_ PCSTR const func_name_in, _In_ _In_range_( 0, INT_MAX ) const int line_number_in ) : function_to_call_on_scope_exit{ std::move( f ) }, active_{ true }
 #ifdef DEBUG
 		,
 		file_name{ file_name_in },
@@ -60,7 +60,7 @@ class ScopeGuard final {
 #endif
 		}
 
-	__forceinline
+	
 	~ScopeGuard( ) {
 		if ( active_ ) {
 	#ifdef DEBUG
@@ -71,8 +71,8 @@ class ScopeGuard final {
 			}
 		}
 
-	//intentionally ASKING for inlining.
-	__forceinline void dismiss( ) {
+	
+	void dismiss( ) {
 		ASSERT( active_ == true );
 		active_ = false;
 		}
@@ -82,7 +82,6 @@ class ScopeGuard final {
 	ScopeGuard( const ScopeGuard& ) = delete;
 	ScopeGuard& operator=( const ScopeGuard& ) = delete;
 
-	__forceinline
 	ScopeGuard( ScopeGuard&& rhs ) : function_to_call_on_scope_exit( std::move( rhs.function_to_call_on_scope_exit ) ), active_( rhs.active_ ) {
 		rhs.dismiss( );
 		}
@@ -92,7 +91,7 @@ class ScopeGuard final {
 
 //intentionally ASKING for inlining.
 template <class Fun>
-__forceinline ScopeGuard<Fun> scopeGuard( Fun f, _In_z_ PCSTR const file_name_in, _In_z_ PCSTR const func_name_in, _In_ _In_range_( 0, INT_MAX ) const int line_number_in ) {
+ScopeGuard<Fun> scopeGuard( Fun f, _In_z_ PCSTR const file_name_in, _In_z_ PCSTR const func_name_in, _In_ _In_range_( 0, INT_MAX ) const int line_number_in ) {
 	static_assert( std::is_move_constructible<Fun>::value, "It's important that `Fun` be move-constructable, as ScopeGuard has a move constructor" );
 	
 #if !_HAS_EXCEPTIONS

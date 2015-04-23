@@ -16,28 +16,160 @@
 //#include <dxva2api.h>
 #include <stdio.h>
 #include <iostream>
+#include <strsafe.h>
+#include <string>
+#include <memory>
 
 
 //define SCOPE_GUARD_DEBUGGING for enhanced scope guard debugging.
 #include "ScopeGuard.h"
 
+//This is an error handling function, and is intended to be called rarely!
+__declspec(noinline)
+void unexpected_strsafe_invalid_parameter_handler( _In_z_ PCSTR const strsafe_func_name, _In_z_ PCSTR const file_name_in, _In_z_ PCSTR const func_name_in, _In_ _In_range_( 0, INT_MAX ) const int line_number_in ) {
+	std::string err_str( strsafe_func_name );
+	err_str += " returned STRSAFE_E_INVALID_PARAMETER, in: file `";
+	err_str += file_name_in;
+	err_str += "`, function: `";
+	err_str += func_name_in;
+	err_str += "` line: `";
+	err_str += std::to_string( line_number_in );
+	err_str += "`! This (near universally) means an issue where incorrect compile-time constants were passed to a strsafe function. Thus it's probably not recoverable. We'll abort. Sorry!";
+	displayWindowsMsgBoxWithMessage( err_str.c_str( ) );
+	std::terminate( );
+	}
+
+//This is an error handling function, and is intended to be called rarely!
+__declspec(noinline)
+void write_bad_fmt_msg( _Out_writes_z_( 41 ) _Pre_writable_size_( 42 ) _Post_readable_size_( chars_written ) PWSTR psz_fmt_msg, _Out_ rsize_t& chars_written ) {
+	psz_fmt_msg[  0 ] = L'F';
+	psz_fmt_msg[  1 ] = L'o';
+	psz_fmt_msg[  2 ] = L'r';
+	psz_fmt_msg[  3 ] = L'm';
+	psz_fmt_msg[  4 ] = L'a';
+	psz_fmt_msg[  5 ] = L't';
+	psz_fmt_msg[  6 ] = L'M';
+	psz_fmt_msg[  7 ] = L'e';
+	psz_fmt_msg[  8 ] = L's';
+	psz_fmt_msg[  9 ] = L's';
+	psz_fmt_msg[ 10 ] = L'a';
+	psz_fmt_msg[ 11 ] = L'g';
+	psz_fmt_msg[ 12 ] = L'e';
+	psz_fmt_msg[ 13 ] = L' ';
+	psz_fmt_msg[ 14 ] = L'f';
+	psz_fmt_msg[ 15 ] = L'a';
+	psz_fmt_msg[ 16 ] = L'i';
+	psz_fmt_msg[ 17 ] = L'l';
+	psz_fmt_msg[ 18 ] = L'e';
+	psz_fmt_msg[ 19 ] = L'd';
+	psz_fmt_msg[ 20 ] = L' ';
+	psz_fmt_msg[ 21 ] = L't';
+	psz_fmt_msg[ 22 ] = L'o';
+	psz_fmt_msg[ 23 ] = L' ';
+	psz_fmt_msg[ 24 ] = L'f';
+	psz_fmt_msg[ 25 ] = L'o';
+	psz_fmt_msg[ 26 ] = L'r';
+	psz_fmt_msg[ 27 ] = L'm';
+	psz_fmt_msg[ 28 ] = L'a';
+	psz_fmt_msg[ 29 ] = L't';
+	psz_fmt_msg[ 30 ] = L' ';
+	psz_fmt_msg[ 31 ] = L'a';
+	psz_fmt_msg[ 32 ] = L'n';
+	psz_fmt_msg[ 33 ] = L' ';
+	psz_fmt_msg[ 34 ] = L'e';
+	psz_fmt_msg[ 35 ] = L'r';
+	psz_fmt_msg[ 36 ] = L'r';
+	psz_fmt_msg[ 37 ] = L'o';
+	psz_fmt_msg[ 38 ] = L'r';
+	psz_fmt_msg[ 39 ] = L'!';
+	psz_fmt_msg[ 40 ] = 0;
+	chars_written = 41;
+	assert( wcslen( psz_fmt_msg ) == chars_written );
+	}
+
+
+
+static_assert( !SUCCEEDED( E_FAIL ), "CStyle_GetLastErrorAsFormattedMessage doesn't return a valid error code!" );
+static_assert( SUCCEEDED( S_OK ), "CStyle_GetLastErrorAsFormattedMessage doesn't return a valid success code!" );
+//On returning E_FAIL, call GetLastError for details. That's not my idea! //TODO: mark as only returning S_OK, E_FAIL
+_Success_( SUCCEEDED( return ) ) HRESULT CStyle_GetLastErrorAsFormattedMessage( WDS_WRITES_TO_STACK( strSize, chars_written ) PWSTR psz_formatted_error, _In_range_( 128, 32767 ) const rsize_t strSize, _Out_ rsize_t& chars_written, const DWORD error ) {
+	//const auto err = GetLastError( );
+	const auto err = error;
+	const auto ret = FormatMessageW( FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, err, MAKELANGID( LANG_NEUTRAL, SUBLANG_DEFAULT ), psz_formatted_error, static_cast<DWORD>( strSize ), NULL );
+	if ( ret != 0 ) {
+		chars_written = ret;
+		return S_OK;
+		}
+	const DWORD error_err = GetLastError( );
+	
+	const rsize_t err_msg_buff_size = 512;
+	_Null_terminated_ char err_msg_buff[ err_msg_buff_size ] = { 0 };
+	const HRESULT output_error_message_format_result = StringCchPrintfA( err_msg_buff, err_msg_buff_size, "WDS: FormatMessageW failed with error code: `%lu`!!\r\n", error_err );
+	if ( SUCCEEDED( output_error_message_format_result ) ) {
+		OutputDebugStringA( err_msg_buff );
+		}
+	else {
+		WDS_ASSERT_EXPECTED_STRING_FORMAT_FAILURE_HRESULT( output_error_message_format_result );
+		WDS_STRSAFE_E_INVALID_PARAMETER_HANDLER( output_error_message_format_result, "StringCchPrintfA" );
+		OutputDebugStringA( "WDS: FormatMessageW failed, and THEN formatting the error message for FormatMessageW failed!\r\n" );
+		}
+	if ( strSize > 41 ) {
+		write_bad_fmt_msg( psz_formatted_error, chars_written );
+		return E_FAIL;
+		}
+	chars_written = 0;
+	return E_FAIL;
+	}
+
+
+
+
 //what the fuck?
 void printError( _In_z_ PCSTR const msg ) {
-	DWORD eNum;
-	TCHAR sysMsg[ 256 ];
-	eNum = GetLastError( );
-	FormatMessage( FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, eNum, MAKELANGID( LANG_NEUTRAL, SUBLANG_DEFAULT ), sysMsg, 256, NULL );
-	std::cout << std::endl << msg << "--Failed with error: " << eNum << " (" << sysMsg << ")" << std::endl << std::endl;
+	//TCHAR sysMsg[ 256 ];
+	const DWORD lastErr = GetLastError( );
+	//FormatMessage( FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, lastErr, MAKELANGID( LANG_NEUTRAL, SUBLANG_DEFAULT ), sysMsg, 256, NULL );
+	//std::cout << std::endl << msg << "--Failed with error: " << lastErr << " (" << sysMsg << ")" << std::endl << std::endl;
+
+	const rsize_t strBufferSize = 512u;
+	wchar_t errBuffer[ strBufferSize ] = { 0 };
+	rsize_t chars_written = 0;
+	const HRESULT fmt_res = CStyle_GetLastErrorAsFormattedMessage( errBuffer, strBufferSize, chars_written, lastErr );
+	if ( SUCCEEDED( fmt_res ) ) {
+		//OutputDebugStringW( errBuffer );
+		wprintf( L"%S--failed with error: %u\r\n\ttext: %s\r\n\r\n", msg, lastErr, errBuffer );
+		return;
+		}
+	printf( "printError - DOUBLE FAULT!\r\n" );
+	std::terminate( );
 	}
 
 //what the double fuck?
 void printError() {
-	char msg[1] = { };
-	printError( msg );
+	//char msg[1] = { };
+	printError( "" );
+	}
+
+bool doesMonitorSupportBrightnessConfigurationViaDDC( _In_ const HANDLE hPhysicalMonitor ) {
+	DWORD capabilitiesFlags_temp = 0;
+	DWORD colorTempsFlags_junk = 0;
+	const BOOL capabilitiesResult = GetMonitorCapabilities( hPhysicalMonitor, &capabilitiesFlags_temp, &colorTempsFlags_junk );
+	if ( capabilitiesResult != TRUE ) {
+		printf( "failed to get monitor capabilities!\r\n" );
+		printError( );
+		return false;
+		}
+
+	const DWORD capabilitiesFlags = capabilitiesFlags_temp;
+	if ( ( capabilitiesFlags & MC_CAPS_BRIGHTNESS ) == 0 ) {
+		printf( "monitor DOES NOT support GetMonitorBrightness/SetMonitorBrightness!\r\n" );
+		return false;
+		}
+	return true;
 	}
 
 
-bool ddcGetBrightness ( int getBrightInt ) {
+bool ddcGetBrightness ( ) {
 	//HMONITOR hMonitor = NULL;
 
 	DWORD pdwMinimumBrightness = 0;
@@ -45,10 +177,57 @@ bool ddcGetBrightness ( int getBrightInt ) {
 	DWORD pdwMaximumBrightness = 0;
 
 	const HWND hwnd = FindWindowW( NULL, NULL );
-	std::cout << "Window handle: " << hwnd << std::endl;
+	printf( "Window handle: %p\r\n", hwnd );
 
-	const HMONITOR hMonitor = MonitorFromWindow( hwnd, MONITOR_DEFAULTTONULL );
-	std::cout << "hMonitor: " << hMonitor << std::endl;
+	const HMONITOR hMonitor = MonitorFromWindow( hwnd, MONITOR_DEFAULTTOPRIMARY );
+	printf( "hMonitor: %p\r\n", hMonitor );
+
+	DWORD physicalMonitors_temp = 0;
+	const BOOL numberMonitorsResult = GetNumberOfPhysicalMonitorsFromHMONITOR( hMonitor, &physicalMonitors_temp );
+	if ( numberMonitorsResult != TRUE ) {
+		printf( "GetNumberOfPhysicalMonitorsFromHMONITOR failed!\r\n" );
+		printError( );
+		return false;
+		}
+
+	const DWORD physicalMonitors = physicalMonitors_temp;
+	
+	if ( physicalMonitors == 0 ) {
+		printf( "No monitors? What??\r\n" );
+		return false;
+		}
+	
+	_Field_size_( physicalMonitors ) std::unique_ptr<PHYSICAL_MONITOR[]> monitors = std::make_unique<PHYSICAL_MONITOR[ ]>( physicalMonitors );
+
+	static_assert( std::is_pod<PHYSICAL_MONITOR>::value, "can't memset!" );
+	memset( monitors.get( ), 0, ( sizeof( PHYSICAL_MONITOR ) * physicalMonitors ) );
+
+	const BOOL getPhysicalMonitors = GetPhysicalMonitorsFromHMONITOR( hMonitor, physicalMonitors, monitors.get( ) );
+	if ( getPhysicalMonitors != TRUE ) {
+		printf( "GetPhysicalMonitorsFromHMONITOR failed!\r\n" );
+		printError( );
+		return false;
+		}
+
+	auto monitorsGuard = SCOPEGUARD_INSTANCE( [ &] {
+		const BOOL destroyRes = DestroyPhysicalMonitors( physicalMonitors, monitors.get( ) );
+		if ( destroyRes != TRUE ) {
+			printf( "DestroyPhysicalMonitors failed!\r\n" );
+			printError( );
+			std::terminate( );
+			}
+		} );
+
+	printf( "Got %u physical monitors\r\n", physicalMonitors );
+
+	for ( DWORD i = 0; i < physicalMonitors; ++i ) {
+		printf( "Monitor #%u description: %S\r\n", i, monitors[ i ].szPhysicalMonitorDescription );
+		}
+
+	const bool doesSupport = doesMonitorSupportBrightnessConfigurationViaDDC( monitors[ 0 ].hPhysicalMonitor );
+	if ( !doesSupport ) {
+		return false;
+		}
 
 	//LPSTR pszASCIICapabilitiesString = NULL;
 
@@ -56,57 +235,43 @@ bool ddcGetBrightness ( int getBrightInt ) {
 	//cchStringLength = NULL;
 	//C6102 warning BUG? http://www.beta.microsoft.com/VisualStudio/feedback/details/812312/incorrect-code-analysis-warning-c6102
 
-	if ( GetCapabilitiesStringLength( hMonitor, &cchStringLength ) ) {
-		std::cout << "GetCapabilitiesStringLength Succeeded!!" << std::endl;
-		if ( ( cchStringLength > 0 ) && ( cchStringLength != NULL ) ) {
-			LPSTR szCapabilitiesString = ( LPSTR ) malloc( cchStringLength );
 
-			if ( szCapabilitiesString != NULL ) {
 
-				BOOL capabilitiesRequestAndCapabilitiesReplySucces = CapabilitiesRequestAndCapabilitiesReply( hwnd, szCapabilitiesString, cchStringLength );
 
-				if ( capabilitiesRequestAndCapabilitiesReplySucces ) {
-					std::cout << "szCapabilitiesString: " << szCapabilitiesString << std::endl;
-					}
+	const BOOL capabilityStrLen = GetCapabilitiesStringLength( monitors[ 0 ].hPhysicalMonitor, &cchStringLength );
 
-				else {
-					std::cout << "CapabilitiesRequestAndCapabilitiesReply failed!" << std::endl;
-					}
-				}
-			else {
-				std::cout << "Failed before CapabilitiesRequestAndCapabilitiesReply (because szCapabilitiesString == NULL)!!" << std::endl;
-				}
-			}
-		else {
-			std::cout << "\t...but cchStringLength was invalid" << std::endl;
-			std::cout << "\tinvalid cchStringLength: '" << cchStringLength << "'" << std::endl;
-			std::cout << "\tfull windows error message: " << std::endl;
-			printError();
-			}
-		}
-	else {
-		std::cout << "Failed to GetCapabilitiesStringLength!!" << std::endl;
-		std::cout << "\full windows error message: " << std::endl;
+	if ( capabilityStrLen != TRUE ) {
+		printf( "GetCapabilitiesStringLength failed!!\r\n" );
 		printError( );
 		return false;
 		}
-	BOOL getBSuccess = GetMonitorBrightness( hMonitor, &pdwMinimumBrightness, &pdwCurrentBrightness, &pdwMaximumBrightness );
 
-	if ( getBSuccess == TRUE ) {
-		std::cout << pdwMinimumBrightness << std::endl;
-		std::cout << pdwCurrentBrightness << std::endl;
-		std::cout << pdwMaximumBrightness << std::endl;
-		
-		if ( !( pdwCurrentBrightness == NULL ) ) {
-			getBrightInt = pdwCurrentBrightness;
-			}
+	printf( "GetCapabilitiesStringLength Succeeded!!\r\n" );
 
-		return true;
-		}
-	else {
-		std::cout << "GetMonitorBrightness failed!" << std::endl;
+	std::unique_ptr<_Null_terminated_ char[ ]> capabilitiesString = std::make_unique<char[ ]>( cchStringLength );
+
+	const BOOL capabilitiesRequestAndCapabilitiesReplySucces = CapabilitiesRequestAndCapabilitiesReply( hwnd, capabilitiesString.get( ), cchStringLength );
+	if ( capabilitiesRequestAndCapabilitiesReplySucces != TRUE ) {
+		printf( "CapabilitiesRequestAndCapabilitiesReply failed!\r\n" );
+		printError( );
 		return false;
 		}
+
+	printf( "szCapabilitiesString: %s\r\n", capabilitiesString.get( ) );
+
+	const BOOL getBSuccess = GetMonitorBrightness( hMonitor, &pdwMinimumBrightness, &pdwCurrentBrightness, &pdwMaximumBrightness );
+
+	if ( getBSuccess != TRUE ) {
+		printf( "GetMonitorBrightness failed!\r\n" );
+		return false;
+		}
+
+	std::cout << pdwMinimumBrightness << std::endl;
+	std::cout << pdwCurrentBrightness << std::endl;
+	std::cout << pdwMaximumBrightness << std::endl;
+
+	return true;
+
 	}
 
 bool ddcSetBrightness ( const DWORD dwNewBrightness) {
@@ -116,14 +281,62 @@ bool ddcSetBrightness ( const DWORD dwNewBrightness) {
 	//DWORD pdwCurrentBrightness = 0;
 	//DWORD pdwMaximumBrightness = 0;
 
+
 	const HWND hwnd = FindWindowW( NULL, NULL );
-	std::cout << "Window handle: " << hwnd << std::endl;
+	printf( "Window handle: %p\r\n", hwnd );
 
-	const HMONITOR hMonitor = MonitorFromWindow( hwnd, MONITOR_DEFAULTTONULL );
-	std::cout << "hMonitor: " << hMonitor << std::endl;
+	const HMONITOR hMonitor = MonitorFromWindow( hwnd, MONITOR_DEFAULTTOPRIMARY );
+	printf( "hMonitor: %p\r\n", hMonitor );
+
+	DWORD physicalMonitors_temp = 0;
+	const BOOL numberMonitorsResult = GetNumberOfPhysicalMonitorsFromHMONITOR( hMonitor, &physicalMonitors_temp );
+	if ( numberMonitorsResult != TRUE ) {
+		printf( "GetNumberOfPhysicalMonitorsFromHMONITOR failed!\r\n" );
+		printError( );
+		return false;
+		}
+
+	const DWORD physicalMonitors = physicalMonitors_temp;
+	
+	if ( physicalMonitors == 0 ) {
+		printf( "No monitors? What??\r\n" );
+		return false;
+		}
+	
+	_Field_size_( physicalMonitors ) std::unique_ptr<PHYSICAL_MONITOR[]> monitors = std::make_unique<PHYSICAL_MONITOR[ ]>( physicalMonitors );
+
+	static_assert( std::is_pod<PHYSICAL_MONITOR>::value, "can't memset!" );
+	memset( monitors.get( ), 0, ( sizeof( PHYSICAL_MONITOR ) * physicalMonitors ) );
+
+	const BOOL getPhysicalMonitors = GetPhysicalMonitorsFromHMONITOR( hMonitor, physicalMonitors, monitors.get( ) );
+	if ( getPhysicalMonitors != TRUE ) {
+		printf( "GetPhysicalMonitorsFromHMONITOR failed!\r\n" );
+		printError( );
+		return false;
+		}
+
+	auto monitorsGuard = SCOPEGUARD_INSTANCE( [ &] {
+		const BOOL destroyRes = DestroyPhysicalMonitors( physicalMonitors, monitors.get( ) );
+		if ( destroyRes != TRUE ) {
+			printf( "DestroyPhysicalMonitors failed!\r\n" );
+			printError( );
+			std::terminate( );
+			}
+		} );
+
+	printf( "Got %u physical monitors\r\n", physicalMonitors );
+
+	for ( DWORD i = 0; i < physicalMonitors; ++i ) {
+		printf( "Monitor #%u description: %S\r\n", i, monitors[ i ].szPhysicalMonitorDescription );
+		}
+
+	const bool doesSupport = doesMonitorSupportBrightnessConfigurationViaDDC( monitors[ 0 ].hPhysicalMonitor );
+	if ( !doesSupport ) {
+		return false;
+		}
 
 
-	const BOOL setBSuccess = SetMonitorBrightness( hMonitor,  dwNewBrightness);
+	const BOOL setBSuccess = SetMonitorBrightness( monitors[ 0 ].hPhysicalMonitor, dwNewBrightness);
 
 	if ( setBSuccess == TRUE ) {
 		std::cout << "SetMonitorBrightness " << dwNewBrightness << " succeeded!" << std::endl;
@@ -229,7 +442,7 @@ int GetBrightness ( ) {
 		pEnum:							Enumeration Interface
 	*/
 	
-	IEnumWbemClassObject *pEnum = NULL;
+	IEnumWbemClassObject* pEnum = NULL;
 
 	const HRESULT execQueryResult = pNamespace->ExecQuery (
 								_bstr_t ( L"WQL" ),
@@ -241,51 +454,49 @@ int GetBrightness ( ) {
 
 	if ( execQueryResult != WBEM_S_NO_ERROR ) {
 		printf( "ExecQuery failed!!\r\n" );
-		goto cleanup;
+		return -1;
 		}
 
 	
-	hr = WBEM_S_NO_ERROR;
+	//hr = WBEM_S_NO_ERROR;
 
-	while ( WBEM_S_NO_ERROR == hr ) {
-		int ret = -1;
-		ULONG ulReturned;
-		IWbemClassObject* pObj;
+	//https://code.google.com/p/stexbar/source/browse/trunk/Misc/AAClr/src/Utils.cpp?spec=svn926&r=926
+	//while ( WBEM_S_NO_ERROR == hr ) {
+		ULONG ulReturned = 0;
+		IWbemClassObject* pObj = NULL;
 
 		/*
 		Next: 
 			Get the Next Object from the collection
-				WBEM_INFINITE:	Timeout
 				1:				Number of objects requested
-				pObj:			Returned Object
-				ulReturned:		Number of object returned
 		*/
-		hr = pEnum->Next( WBEM_INFINITE, 1, &pObj, &ulReturned );
+		const HRESULT nextResult = pEnum->Next( WBEM_INFINITE, 1, &pObj, &ulReturned );
 
-		if ( hr != WBEM_S_NO_ERROR ) {
+		if ( nextResult != WBEM_S_NO_ERROR ) {
+			printf( "pEnum->Next failed!! (done?)\r\n" );
 			return -1;
 			}
 
 		VARIANT var1;
-		hr = pObj->Get (
-						_bstr_t ( L"CurrentBrightness" ),
-						0,
-						&var1,
-						NULL,
-						NULL
-						);
-
-		ret = V_UI1 ( &var1 );
-		VariantClear ( &var1 );
-		if ( hr != WBEM_S_NO_ERROR ) {
-			return ret;
+		const HRESULT wmiBrightnessResult = pObj->Get( L"CurrentBrightness", 0, &var1, NULL, NULL );
+		if ( FAILED( wmiBrightnessResult ) ) {
+			printf( "pObj->Get( CurrentBrightness ) failed!\r\n" );
+			return -1;
 			}
-		}
 
-cleanup:
-	return -1;
+		const int ret = V_UI1( &var1 );
+		const HRESULT clearResult = VariantClear( &var1 );
+		if ( FAILED( clearResult ) ) {
+			printf( "VariantClear failed!!\r\n" );
+			return -1;
+			}
+		printf( "'ret' is valid: %i\r\n", ret );
+		return ret;//?
+		//}
+	//return -1;
 	}
 
+_Success_( return )
 bool SetBrightness( int val ) {
 	
 	std::cout << "Attempting to set brightness " << val << " via WMI" << std::endl;
@@ -300,6 +511,14 @@ bool SetBrightness( int val ) {
 	//HRESULT hr = S_OK;
 
 	BSTR path       = SysAllocString( L"root\\wmi" );
+
+	if ( path == NULL ) {
+		printf( "failed to allocate path BSTR!\r\n" );
+		return false;
+		}
+
+	auto pathguard = SCOPEGUARD_INSTANCE( [ &] { SysFreeString( path ); path = NULL; } );
+
 	BSTR ClassPath  = SysAllocString( L"WmiMonitorBrightnessMethods" );
 	BSTR MethodName = SysAllocString( L"WmiSetBrightness" );
 	BSTR ArgName0   = SysAllocString( L"Timeout" );
@@ -378,7 +597,7 @@ bool SetBrightness( int val ) {
 		goto cleanup;
 		}
 
-	hr = WBEM_S_NO_ERROR;
+	HRESULT hr = WBEM_S_NO_ERROR;
 
 	while ( WBEM_S_NO_ERROR == hr ) {
 		ULONG ulReturned;
@@ -507,11 +726,10 @@ void main ( ) {
 
 	std::cout << "Got brightness: " << ass << " via WMI" << std::endl;
 	Sleep( 100 );
-	bool getBrightSucess = ddcGetBrightness( getBrightInt );
+	bool getBrightSucess = ddcGetBrightness( );
 
 	if ( !getBrightSucess ) {
-		char msg[] = "Failed to get brightness via DDC/CI!";
-		printError( msg );
+		printf( "Failed to get brightness via DDC/CI!\r\n" );
 		Sleep( 100 );
 		}	
 
