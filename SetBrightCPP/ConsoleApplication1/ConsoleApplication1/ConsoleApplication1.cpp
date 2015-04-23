@@ -13,21 +13,22 @@
 #include <HighLevelMonitorConfigurationAPI.h>
 #include <LowLevelMonitorConfigurationAPI.h>
 #include <tchar.h>
-#include <dxva2api.h>
+//#include <dxva2api.h>
 #include <stdio.h>
 #include <iostream>
 
-using namespace std;
 
 
+//what the fuck?
 void printError( char msg[ ] ) {
 	DWORD eNum;
 	TCHAR sysMsg[ 256 ];
 	eNum = GetLastError( );
 	FormatMessage( FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, eNum, MAKELANGID( LANG_NEUTRAL, SUBLANG_DEFAULT ), sysMsg, 256, NULL );
-	cout << endl << msg << "--Failed with error: " << eNum << " (" << sysMsg << ")" << endl << endl;
+	std::cout << std::endl << msg << "--Failed with error: " << eNum << " (" << sysMsg << ")" << std::endl << std::endl;
 	}
 
+//what the double fuck?
 void printError() {
 	char msg[1] = { };
 	printError( msg );
@@ -41,11 +42,11 @@ bool ddcGetBrightness ( int getBrightInt ) {
 	DWORD pdwCurrentBrightness = 0;
 	DWORD pdwMaximumBrightness = 0;
 
-	HWND hwnd = FindWindow ( NULL, NULL );
-	cout << "Window handle: " << hwnd << endl;
+	HWND hwnd = FindWindow( NULL, NULL );
+	std::cout << "Window handle: " << hwnd << std::endl;
 
-	hMonitor = MonitorFromWindow ( hwnd, MONITOR_DEFAULTTONULL );
-	cout << "hMonitor: " << hMonitor << endl;
+	hMonitor = MonitorFromWindow( hwnd, MONITOR_DEFAULTTONULL );
+	std::cout << "hMonitor: " << hMonitor << std::endl;
 
 	//LPSTR pszASCIICapabilitiesString = NULL;
 
@@ -54,8 +55,7 @@ bool ddcGetBrightness ( int getBrightInt ) {
 	//C6102 warning BUG? http://www.beta.microsoft.com/VisualStudio/feedback/details/812312/incorrect-code-analysis-warning-c6102
 
 	if ( GetCapabilitiesStringLength( hMonitor, &cchStringLength ) ) {
-		cout << "GetCapabilitiesStringLength Succeeded!!" << endl;
-#pragma warning(suppress: 6102)
+		std::cout << "GetCapabilitiesStringLength Succeeded!!" << std::endl;
 		if ( ( cchStringLength > 0 ) && ( cchStringLength != NULL ) ) {
 			LPSTR szCapabilitiesString = ( LPSTR ) malloc( cchStringLength );
 
@@ -63,31 +63,31 @@ bool ddcGetBrightness ( int getBrightInt ) {
 
 				BOOL capabilitiesRequestAndCapabilitiesReplySucces = CapabilitiesRequestAndCapabilitiesReply( hwnd, szCapabilitiesString, cchStringLength );
 
-				if ( capabilitiesRequestAndCapabilitiesReplySucces ) { cout << "szCapabilitiesString: " << szCapabilitiesString << endl; }
+				if ( capabilitiesRequestAndCapabilitiesReplySucces ) { std::cout << "szCapabilitiesString: " << szCapabilitiesString << std::endl; }
 
-				else { cout << "CapabilitiesRequestAndCapabilitiesReply failed!" << endl; }
+				else { std::cout << "CapabilitiesRequestAndCapabilitiesReply failed!" << std::endl; }
 				}
-			else { cout << "Failed before CapabilitiesRequestAndCapabilitiesReply (because szCapabilitiesString == NULL)!!" << endl; }
+			else { std::cout << "Failed before CapabilitiesRequestAndCapabilitiesReply (because szCapabilitiesString == NULL)!!" << std::endl; }
 			}
 		else {
-			cout << "\t...but cchStringLength was invalid" << endl;
-			cout << "\tinvalid cchStringLength: '" << cchStringLength << "'" << endl;
-			cout << "\tfull windows error message: " << endl;
+			std::cout << "\t...but cchStringLength was invalid" << std::endl;
+			std::cout << "\tinvalid cchStringLength: '" << cchStringLength << "'" << std::endl;
+			std::cout << "\tfull windows error message: " << std::endl;
 			printError();
 			}
 		}
 	else {
-		cout << "Failed to GetCapabilitiesStringLength!!" << endl;
-		cout << "\full windows error message: " << endl;
+		std::cout << "Failed to GetCapabilitiesStringLength!!" << std::endl;
+		std::cout << "\full windows error message: " << std::endl;
 		printError( );
 		return false;
 		}
 	BOOL getBSuccess = GetMonitorBrightness ( hMonitor, &pdwMinimumBrightness, &pdwCurrentBrightness, &pdwMaximumBrightness );
 
 	if ( getBSuccess == TRUE ) {
-		cout << pdwMinimumBrightness << endl;
-		cout << pdwCurrentBrightness << endl;
-		cout << pdwMaximumBrightness << endl;
+		std::cout << pdwMinimumBrightness << std::endl;
+		std::cout << pdwCurrentBrightness << std::endl;
+		std::cout << pdwMaximumBrightness << std::endl;
 		
 		if ( !( pdwCurrentBrightness == NULL ) ) {
 			getBrightInt = pdwCurrentBrightness;
@@ -96,7 +96,7 @@ bool ddcGetBrightness ( int getBrightInt ) {
 		return true;
 		}
 	else {
-		cout << "GetMonitorBrightness failed!" << endl;
+		std::cout << "GetMonitorBrightness failed!" << std::endl;
 		return false;
 		}
 	}
@@ -108,20 +108,20 @@ bool ddcSetBrightness ( DWORD dwNewBrightness) {
 	//DWORD pdwMaximumBrightness = 0;
 
 	HWND hwnd = FindWindow( NULL, NULL );
-	cout << "Window handle: " << hwnd << endl;
+	std::cout << "Window handle: " << hwnd << std::endl;
 
 	hMonitor = MonitorFromWindow( hwnd, MONITOR_DEFAULTTONULL );
-	cout << "hMonitor: " << hMonitor << endl;
+	std::cout << "hMonitor: " << hMonitor << std::endl;
 
 
 	BOOL setBSuccess = SetMonitorBrightness( hMonitor,  dwNewBrightness);
 
 	if ( setBSuccess == TRUE ) {
-		cout << "SetMonitorBrightness " << dwNewBrightness << " succeeded!" << endl;
+		std::cout << "SetMonitorBrightness " << dwNewBrightness << " succeeded!" << std::endl;
 		return true;
 		}
 	else {
-		cout << "SetMonitorBrightness " << dwNewBrightness << " failed!" << endl;
+		std::cout << "SetMonitorBrightness " << dwNewBrightness << " failed!" << std::endl;
 		return false;
 		}
 	}
@@ -139,7 +139,7 @@ int GetBrightness ( ) {
 	BSTR bstrQuery = SysAllocString ( L"Select * from WmiMonitorBrightness" );
 
 	if ( !path || !ClassPath || !bstrQuery) {
-		cout << "Something went wrong when initializing path, ClassPath, and bstrQuery." << endl;
+		std::cout << "Something went wrong when initializing path, ClassPath, and bstrQuery." << std::endl;
 		goto cleanup;
 		}
 
@@ -229,7 +229,7 @@ int GetBrightness ( ) {
 		}
 
 cleanup:
-	cout << "GetBrightness cleanup initiated!" << endl;
+	std::cout << "GetBrightness cleanup initiated!" << std::endl;
 	SysFreeString ( path );
 	SysFreeString ( ClassPath );
 	SysFreeString ( bstrQuery );
@@ -247,7 +247,7 @@ cleanup:
 
 bool SetBrightness( int val ) {
 	
-	cout << "Attempting to set brightness " << val << " via WMI" << endl;
+	std::cout << "Attempting to set brightness " << val << " via WMI" << std::endl;
 	bool bRet = true;
 	
 	IWbemLocator         *pLocator   = NULL;
@@ -266,7 +266,7 @@ bool SetBrightness( int val ) {
 	BSTR bstrQuery  = SysAllocString( L"Select * from WmiMonitorBrightnessMethods" );
 
 	if ( !path || !ClassPath || !MethodName || !ArgName0 ) {
-		cout << "\tSomething went wrong when initializing path, ClassPath, MethodName, and ArgName0." << endl;
+		std::cout << "\tSomething went wrong when initializing path, ClassPath, MethodName, and ArgName0." << std::endl;
 		bRet = false;
 		goto cleanup;
 		}
@@ -275,7 +275,7 @@ bool SetBrightness( int val ) {
 
 	hr = CoInitialize( 0 );
 	if ( FAILED( hr ) ) {
-		cout << "\tSomething went wrong in CoInitialize!" << endl;
+		std::cout << "\tSomething went wrong in CoInitialize!" << std::endl;
 		bRet = false;
 		goto cleanup;
 		}
@@ -286,13 +286,13 @@ bool SetBrightness( int val ) {
 	//change EOAC_SECURE_REFS to EOAC_NONE if you change dwAuthnLevel to RPC_C_AUTHN_LEVEL_NONE
 	hr = CoCreateInstance( CLSID_WbemLocator, 0, CLSCTX_INPROC_SERVER, IID_IWbemLocator, ( LPVOID * ) &pLocator );
 	if ( FAILED( hr ) ) {
-		cout << "\tSomething went wrong in CoCreateInstance!" << endl;
+		std::cout << "\tSomething went wrong in CoCreateInstance!" << std::endl;
 		bRet = false;
 		goto cleanup;
 		}
 	hr = pLocator->ConnectServer( path, NULL, NULL, NULL, 0, NULL, NULL, &pNamespace );
 	if ( hr != WBEM_S_NO_ERROR ) {
-		cout << "\tSomething went wrong in pLocator->ConnectServer!" << endl;
+		std::cout << "\tSomething went wrong in pLocator->ConnectServer!" << std::endl;
 		bRet = false;
 		goto cleanup;
 		}
@@ -300,7 +300,7 @@ bool SetBrightness( int val ) {
 	hr = CoSetProxyBlanket( pNamespace, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, NULL, RPC_C_AUTHN_LEVEL_PKT, RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE );
 
 	if ( hr != WBEM_S_NO_ERROR ) {
-		cout << "\tSomething went wrong in CoSetProxyBlanket!" << endl;
+		std::cout << "\tSomething went wrong in CoSetProxyBlanket!" << std::endl;
 		bRet = false;
 		goto cleanup;
 		}
@@ -324,7 +324,7 @@ bool SetBrightness( int val ) {
 								);
 
 	if ( hr != WBEM_S_NO_ERROR ) {
-		cout << "\tSomething went wrong in pNamespace->ExecQuery!" << endl;
+		std::cout << "\tSomething went wrong in pNamespace->ExecQuery!" << std::endl;
 		bRet = false;
 		goto cleanup;
 		}
@@ -343,7 +343,7 @@ bool SetBrightness( int val ) {
 							);
 
 		if ( hr != WBEM_S_NO_ERROR ) {
-			cout << "\tSomething went wrong in pEnum->Next!" << endl;
+			std::cout << "\tSomething went wrong in pEnum->Next!" << std::endl;
 			bRet = false;
 			goto cleanup;
 			}
@@ -351,7 +351,7 @@ bool SetBrightness( int val ) {
 		// Get the class object
 		hr = pNamespace->GetObject( ClassPath, 0, NULL, &pClass, NULL );
 		if ( hr != WBEM_S_NO_ERROR ) {
-			cout << "\tSomething went wrong in pNamespace->GetObject!" << endl;
+			std::cout << "\tSomething went wrong in pNamespace->GetObject!" << std::endl;
 			bRet = false;
 			goto cleanup;
 			}
@@ -359,14 +359,14 @@ bool SetBrightness( int val ) {
 		// Get the input argument and set the property
 		hr = pClass->GetMethod( MethodName, 0, &pInClass, NULL );
 		if ( hr != WBEM_S_NO_ERROR ) {
-			cout << "\tSomething went wrong in pClass->GetMethod!" << endl;
+			std::cout << "\tSomething went wrong in pClass->GetMethod!" << std::endl;
 			bRet = false;
 			goto cleanup;
 			}
 
 		hr = pInClass->SpawnInstance( 0, &pInInst );
 		if ( hr != WBEM_S_NO_ERROR ) {
-			cout << "\tSomething went wrong in pInClass->SpawnInstance!" << endl;
+			std::cout << "\tSomething went wrong in pInClass->SpawnInstance!" << std::endl;
 			bRet = false;
 			goto cleanup;
 			}
@@ -380,7 +380,7 @@ bool SetBrightness( int val ) {
 
 		VariantClear( &var1 );
 		if ( hr != WBEM_S_NO_ERROR ) {
-			cout << "\tSomething went wrong in pInInst->Put!" << endl;
+			std::cout << "\tSomething went wrong in pInInst->Put!" << std::endl;
 			bRet = false;
 			goto cleanup;
 			}
@@ -397,7 +397,7 @@ bool SetBrightness( int val ) {
 		VariantClear( &var );
 		
 		if ( hr != WBEM_S_NO_ERROR ) {
-			cout << "\tSomething went wrong in pInInst->Put!" << endl;
+			std::cout << "\tSomething went wrong in pInInst->Put!" << std::endl;
 			bRet = false;
 			goto cleanup;
 			}
@@ -409,7 +409,7 @@ bool SetBrightness( int val ) {
 		hr = pObj->Get( _bstr_t( L"__PATH" ), 0, &pathVariable, NULL, NULL );
 		
 		if ( hr != WBEM_S_NO_ERROR ) {
-			cout << "\tSomething went wrong in pObj->Get!" << endl;
+			std::cout << "\tSomething went wrong in pObj->Get!" << std::endl;
 			bRet = false;
 			goto cleanup;
 			}
@@ -419,14 +419,14 @@ bool SetBrightness( int val ) {
 		VariantClear( &pathVariable );
 		
 		if ( hr != WBEM_S_NO_ERROR ) {
-			cout << "\tSomething went wrong in pNamespace->ExecMethod!" << endl;
+			std::cout << "\tSomething went wrong in pNamespace->ExecMethod!" << std::endl;
 			bRet = false;
 			goto cleanup;
 			}
 		}
 
 	cleanup:
-		cout << "initiated SetBrightness cleanup!" << endl;
+		std::cout << "initiated SetBrightness cleanup!" << std::endl;
 		SysFreeString( path       );
 		SysFreeString( ClassPath  );
 		SysFreeString( MethodName );
@@ -453,7 +453,7 @@ void main ( ) {
 	if ( hModule != NULL ) {
 		int ass = GetBrightness (  );
 
-		cout << "Got brightness: " << ass << " via WMI" << endl;
+		std::cout << "Got brightness: " << ass << " via WMI" << std::endl;
 		Sleep( 100 );
 		bool getBrightSucess = ddcGetBrightness ( getBrightInt );
 
@@ -464,19 +464,19 @@ void main ( ) {
 			}	
 
 		else if ( getBrightSucess ) {
-			cout << "Got brightness: " << getBrightInt << " via DDC/CI" << endl;
+			std::cout << "Got brightness: " << getBrightInt << " via DDC/CI" << std::endl;
 			Sleep( 100 );
 			}
 		DWORD newBrightness = 55;
 		if ( !ddcSetBrightness( newBrightness ) ) {
-			cout << "Failed to set brightness " << newBrightness << " via DDC/CI!" << endl << endl;
+			std::cout << "Failed to set brightness " << newBrightness << " via DDC/CI!" << std::endl << std::endl;
 			Sleep( 100 );
 			}
 		else {
-			cout << "Successfully set brightness " << newBrightness << "via DDC/CI!" << endl;
+			std::cout << "Successfully set brightness " << newBrightness << "via DDC/CI!" << std::endl;
 			Sleep( 100 );
 			if ( !ddcSetBrightness( DWORD( ass ) ) ) {
-				cout << "\tFailed to reset brightness to " << ass << "via DDC/CI!" << endl << endl;
+				std::cout << "\tFailed to reset brightness to " << ass << "via DDC/CI!" << std::endl << std::endl;
 				}
 			}
 		SetBrightness ( 0 );
@@ -488,9 +488,9 @@ void main ( ) {
 		SetBrightness ( ass );
 		}
 	else {
-		cout << "Fatal Error: GetModuleHandle failed" << endl << endl;
+		std::cout << "Fatal Error: GetModuleHandle failed" << std::endl << std::endl;
 		}
-	cout << endl;
+	std::cout << std::endl;
 	//return 0;
 	}
 
