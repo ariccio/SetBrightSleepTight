@@ -20,7 +20,7 @@
 
 
 //what the fuck?
-void printError( char msg[ ] ) {
+void printError( _In_z_ PCSTR const msg ) {
 	DWORD eNum;
 	TCHAR sysMsg[ 256 ];
 	eNum = GetLastError( );
@@ -36,16 +36,16 @@ void printError() {
 
 
 bool ddcGetBrightness ( int getBrightInt ) {
-	HMONITOR hMonitor = NULL;
+	//HMONITOR hMonitor = NULL;
 
 	DWORD pdwMinimumBrightness = 0;
 	DWORD pdwCurrentBrightness = 0;
 	DWORD pdwMaximumBrightness = 0;
 
-	HWND hwnd = FindWindow( NULL, NULL );
+	const HWND hwnd = FindWindowW( NULL, NULL );
 	std::cout << "Window handle: " << hwnd << std::endl;
 
-	hMonitor = MonitorFromWindow( hwnd, MONITOR_DEFAULTTONULL );
+	const HMONITOR hMonitor = MonitorFromWindow( hwnd, MONITOR_DEFAULTTONULL );
 	std::cout << "hMonitor: " << hMonitor << std::endl;
 
 	//LPSTR pszASCIICapabilitiesString = NULL;
@@ -63,11 +63,17 @@ bool ddcGetBrightness ( int getBrightInt ) {
 
 				BOOL capabilitiesRequestAndCapabilitiesReplySucces = CapabilitiesRequestAndCapabilitiesReply( hwnd, szCapabilitiesString, cchStringLength );
 
-				if ( capabilitiesRequestAndCapabilitiesReplySucces ) { std::cout << "szCapabilitiesString: " << szCapabilitiesString << std::endl; }
+				if ( capabilitiesRequestAndCapabilitiesReplySucces ) {
+					std::cout << "szCapabilitiesString: " << szCapabilitiesString << std::endl;
+					}
 
-				else { std::cout << "CapabilitiesRequestAndCapabilitiesReply failed!" << std::endl; }
+				else {
+					std::cout << "CapabilitiesRequestAndCapabilitiesReply failed!" << std::endl;
+					}
 				}
-			else { std::cout << "Failed before CapabilitiesRequestAndCapabilitiesReply (because szCapabilitiesString == NULL)!!" << std::endl; }
+			else {
+				std::cout << "Failed before CapabilitiesRequestAndCapabilitiesReply (because szCapabilitiesString == NULL)!!" << std::endl;
+				}
 			}
 		else {
 			std::cout << "\t...but cchStringLength was invalid" << std::endl;
@@ -82,7 +88,7 @@ bool ddcGetBrightness ( int getBrightInt ) {
 		printError( );
 		return false;
 		}
-	BOOL getBSuccess = GetMonitorBrightness ( hMonitor, &pdwMinimumBrightness, &pdwCurrentBrightness, &pdwMaximumBrightness );
+	BOOL getBSuccess = GetMonitorBrightness( hMonitor, &pdwMinimumBrightness, &pdwCurrentBrightness, &pdwMaximumBrightness );
 
 	if ( getBSuccess == TRUE ) {
 		std::cout << pdwMinimumBrightness << std::endl;
@@ -100,76 +106,108 @@ bool ddcGetBrightness ( int getBrightInt ) {
 		return false;
 		}
 	}
-bool ddcSetBrightness ( DWORD dwNewBrightness) {
-	HMONITOR hMonitor = NULL;
+
+bool ddcSetBrightness ( const DWORD dwNewBrightness) {
+	//HMONITOR hMonitor = NULL;
 
 	//DWORD pdwMinimumBrightness = 0;
 	//DWORD pdwCurrentBrightness = 0;
 	//DWORD pdwMaximumBrightness = 0;
 
-	HWND hwnd = FindWindow( NULL, NULL );
+	const HWND hwnd = FindWindowW( NULL, NULL );
 	std::cout << "Window handle: " << hwnd << std::endl;
 
-	hMonitor = MonitorFromWindow( hwnd, MONITOR_DEFAULTTONULL );
+	const HMONITOR hMonitor = MonitorFromWindow( hwnd, MONITOR_DEFAULTTONULL );
 	std::cout << "hMonitor: " << hMonitor << std::endl;
 
 
-	BOOL setBSuccess = SetMonitorBrightness( hMonitor,  dwNewBrightness);
+	const BOOL setBSuccess = SetMonitorBrightness( hMonitor,  dwNewBrightness);
 
 	if ( setBSuccess == TRUE ) {
 		std::cout << "SetMonitorBrightness " << dwNewBrightness << " succeeded!" << std::endl;
 		return true;
 		}
-	else {
-		std::cout << "SetMonitorBrightness " << dwNewBrightness << " failed!" << std::endl;
-		return false;
-		}
+	std::cout << "SetMonitorBrightness " << dwNewBrightness << " failed!" << std::endl;
+	return false;
+
 	}
 
+_Success_( return != -1 )
 int GetBrightness ( ) {
+
+	BSTR path      = SysAllocString( L"root\\wmi" );
+	if ( path == NULL ) {
+		printf( "failed to allocate path BSTR!\r\n" );
+		return -1;
+		}
+
+	BSTR ClassPath = SysAllocString( L"WmiMonitorBrightness" );
+	if ( ClassPath == NULL ) {
+		printf( "failed to allocate ClassPath BSTR!\r\n" );
+		return -1;
+		}
+
+	BSTR bstrQuery = SysAllocString( L"Select * from WmiMonitorBrightness" );
+	if ( bstrQuery == NULL ) {
+		printf( "failed to allocate bstrQuery BSTR!\r\n" );
+		return -1;
+		}
+
+
+	// Initialize COM and connect up to CIMOM
+	const HRESULT initResult = CoInitialize( 0 );
+	if ( FAILED ( initResult ) ) {
+		printf( "Failed to initialize COM!\r\n" );
+		return -1;
+		}
+
+	//  NOTE:
+	//  When using asynchronous WMI API's remotely in an environment where the "Local System" account has no network identity (such as non-Kerberos domains), the authentication level of RPC_C_AUTHN_LEVEL_NONE is needed. However, lowering the authentication level to RPC_C_AUTHN_LEVEL_NONE makes your application less secure. It is wise to use semi-synchronous API's for accessing WMI data and events instead of the asynchronous ones.
+
+	const HRESULT initSecurityResult = CoInitializeSecurity( NULL, -1, NULL, NULL, RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_SECURE_REFS, NULL );
+	//change EOAC_SECURE_REFS to EOAC_NONE if you change dwAuthnLevel to RPC_C_AUTHN_LEVEL_NONE
+	if ( FAILED( initSecurityResult ) ) {
+		printf( "Failed to initialize security!\r\n" );
+		return -1;
+		}
+
 	int ret = -1;
 
 	IWbemLocator         *pLocator    = NULL;
 	IEnumWbemClassObject *pEnum       = NULL;
-	HRESULT               hr          = S_OK;
 	IWbemServices        *pNamespace  = 0;
 
-	BSTR path      = SysAllocString ( L"root\\wmi" );
-	BSTR ClassPath = SysAllocString ( L"WmiMonitorBrightness" );
-	BSTR bstrQuery = SysAllocString ( L"Select * from WmiMonitorBrightness" );
+
+
+	const HRESULT createInstanceResult = CoCreateInstance( CLSID_WbemLocator, 0, CLSCTX_INPROC_SERVER, IID_IWbemLocator, ( LPVOID * ) &pLocator );
+	if ( FAILED ( createInstanceResult ) ) {
+		printf( "CoCreateInstance failed!\r\n" );
+		CoUninitialize( );
+		return -1;
+		}
+
 
 	if ( !path || !ClassPath || !bstrQuery) {
 		std::cout << "Something went wrong when initializing path, ClassPath, and bstrQuery." << std::endl;
 		goto cleanup;
 		}
 
-	// Initialize COM and connect up to CIMOM
 
-	hr = CoInitialize ( 0 );
-	if ( FAILED ( hr ) ) {
+	const HRESULT connectServerResult = pLocator->ConnectServer( path, NULL, NULL, NULL, 0, NULL, NULL, &pNamespace );
+	if ( connectServerResult != WBEM_S_NO_ERROR ) {
+		printf( "ConnectServer failed!\r\n" );
 		goto cleanup;
 		}
 
-	//  NOTE:
-	//  When using asynchronous WMI API's remotely in an environment where the "Local System" account has no network identity (such as non-Kerberos domains), the authentication level of RPC_C_AUTHN_LEVEL_NONE is needed. However, lowering the authentication level to RPC_C_AUTHN_LEVEL_NONE makes your application less secure. It is wise to use semi-synchronous API's for accessing WMI data and events instead of the asynchronous ones.
+	const HRESULT setProxyBlanketResult = CoSetProxyBlanket( pNamespace, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, NULL, RPC_C_AUTHN_LEVEL_PKT, RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE );
 
-	hr = CoInitializeSecurity ( NULL, -1, NULL, NULL, RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_SECURE_REFS, NULL );
-	//change EOAC_SECURE_REFS to EOAC_NONE if you change dwAuthnLevel to RPC_C_AUTHN_LEVEL_NONE
-
-	hr = CoCreateInstance ( CLSID_WbemLocator, 0, CLSCTX_INPROC_SERVER, IID_IWbemLocator, ( LPVOID * ) &pLocator );
-	if ( FAILED ( hr ) ) {
-		goto cleanup;
-		}
-	hr = pLocator->ConnectServer ( path, NULL, NULL, NULL, 0, NULL, NULL, &pNamespace );
-	if ( hr != WBEM_S_NO_ERROR ) {
+	if ( setProxyBlanketResult != WBEM_S_NO_ERROR ) {
+		printf( "CoSetProxyBlanket failed!\r\n" );
 		goto cleanup;
 		}
 
-	hr = CoSetProxyBlanket ( pNamespace, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, NULL, RPC_C_AUTHN_LEVEL_PKT, RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE );
-
-	if ( hr != WBEM_S_NO_ERROR ) {
-		goto cleanup;
-		}
+	//Following comment kept for hilarity.
+	//Yes, I'd really never seen that operator before :)
 
 	/*
 	See http://stackoverflow.com/a/1238643/625687 for info on usage of arrow ('->')
@@ -180,7 +218,7 @@ int GetBrightness ( ) {
 		NULL:							Context
 		pEnum:							Enumeration Interface
 	*/
-	hr = pNamespace->ExecQuery (
+	const HRESULT execQueryResult = pNamespace->ExecQuery (
 								_bstr_t ( L"WQL" ),
 								bstrQuery,
 								WBEM_FLAG_RETURN_IMMEDIATELY,
@@ -188,7 +226,8 @@ int GetBrightness ( ) {
 								&pEnum
 								);
 
-	if ( hr != WBEM_S_NO_ERROR ) {
+	if ( execQueryResult != WBEM_S_NO_ERROR ) {
+		printf( "ExecQuery failed!!\r\n" );
 		goto cleanup;
 		}
 
@@ -240,7 +279,7 @@ cleanup:
 	if ( pNamespace ) {
 		pNamespace->Release( );
 		}
-	CoUninitialize ( );
+	CoUninitialize( );
 
 	return ret;
 	}
@@ -256,7 +295,7 @@ bool SetBrightness( int val ) {
 	IWbemClassObject     *pInInst    = NULL;
 	IEnumWbemClassObject *pEnum      = NULL;
 	IWbemServices        *pNamespace = 0;
-	HRESULT hr = S_OK;
+	//HRESULT hr = S_OK;
 
 	BSTR path       = SysAllocString( L"root\\wmi" );
 	BSTR ClassPath  = SysAllocString( L"WmiMonitorBrightnessMethods" );
@@ -273,8 +312,8 @@ bool SetBrightness( int val ) {
 
 	// Initialize COM and connect up to CIMOM
 
-	hr = CoInitialize( 0 );
-	if ( FAILED( hr ) ) {
+	const HRESULT initResult = CoInitialize( 0 );
+	if ( FAILED( initResult ) ) {
 		std::cout << "\tSomething went wrong in CoInitialize!" << std::endl;
 		bRet = false;
 		goto cleanup;
@@ -282,29 +321,37 @@ bool SetBrightness( int val ) {
 
 	//  When using asynchronous WMI API's remotely in an environment where the "Local System" account has no network identity (such as non-Kerberos domains), the authentication level of RPC_C_AUTHN_LEVEL_NONE is needed. However, lowering the authentication level to RPC_C_AUTHN_LEVEL_NONE makes your application less secure. It is wise to use semi-synchronous API's for accessing WMI data and events instead of the asynchronous ones.
 
-	hr = CoInitializeSecurity( NULL, -1, NULL, NULL, RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_SECURE_REFS, NULL );
+	const HRESULT initSecurity = CoInitializeSecurity( NULL, -1, NULL, NULL, RPC_C_AUTHN_LEVEL_PKT_PRIVACY, RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_SECURE_REFS, NULL );
+	if ( FAILED( initSecurity ) )
+	{
+		printf( "Failed to init security!\r\n" );
+		goto cleanup;
+	}
 	//change EOAC_SECURE_REFS to EOAC_NONE if you change dwAuthnLevel to RPC_C_AUTHN_LEVEL_NONE
-	hr = CoCreateInstance( CLSID_WbemLocator, 0, CLSCTX_INPROC_SERVER, IID_IWbemLocator, ( LPVOID * ) &pLocator );
-	if ( FAILED( hr ) ) {
+	const HRESULT createInstanceResult = CoCreateInstance( CLSID_WbemLocator, 0, CLSCTX_INPROC_SERVER, IID_IWbemLocator, ( LPVOID * ) &pLocator );
+	if ( FAILED( createInstanceResult ) ) {
 		std::cout << "\tSomething went wrong in CoCreateInstance!" << std::endl;
 		bRet = false;
 		goto cleanup;
 		}
-	hr = pLocator->ConnectServer( path, NULL, NULL, NULL, 0, NULL, NULL, &pNamespace );
-	if ( hr != WBEM_S_NO_ERROR ) {
+
+	const HRESULT connectServerResult = pLocator->ConnectServer( path, NULL, NULL, NULL, 0, NULL, NULL, &pNamespace );
+	if ( connectServerResult != WBEM_S_NO_ERROR ) {
 		std::cout << "\tSomething went wrong in pLocator->ConnectServer!" << std::endl;
 		bRet = false;
 		goto cleanup;
 		}
 
-	hr = CoSetProxyBlanket( pNamespace, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, NULL, RPC_C_AUTHN_LEVEL_PKT, RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE );
+	const HRESULT setBlanketResult = CoSetProxyBlanket( pNamespace, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, NULL, RPC_C_AUTHN_LEVEL_PKT, RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE );
 
-	if ( hr != WBEM_S_NO_ERROR ) {
+	if ( setBlanketResult != WBEM_S_NO_ERROR ) {
 		std::cout << "\tSomething went wrong in CoSetProxyBlanket!" << std::endl;
 		bRet = false;
 		goto cleanup;
 		}
 
+	//Following comment kept for hilarity.
+	//Yes, I'd really never seen that operator before :)
 	/*
 	See http://stackoverflow.com/a/1238643/625687 for info on usage of arrow ('->')
 	ExecQuery:
@@ -315,7 +362,7 @@ bool SetBrightness( int val ) {
 	pEnum:							Enumeration Interface
 	*/
 
-	hr = pNamespace->ExecQuery( 
+	const HRESULT execQueryResult = pNamespace->ExecQuery( 
 								_bstr_t( L"WQL" ),
 								bstrQuery,
 								WBEM_FLAG_RETURN_IMMEDIATELY,
@@ -323,7 +370,7 @@ bool SetBrightness( int val ) {
 								&pEnum
 								);
 
-	if ( hr != WBEM_S_NO_ERROR ) {
+	if ( execQueryResult != WBEM_S_NO_ERROR ) {
 		std::cout << "\tSomething went wrong in pNamespace->ExecQuery!" << std::endl;
 		bRet = false;
 		goto cleanup;
@@ -448,49 +495,46 @@ bool SetBrightness( int val ) {
 void main ( ) {
 	int getBrightInt = NULL;
 
-	HMODULE hModule = ::GetModuleHandle ( NULL );
+	HMODULE hModule = ::GetModuleHandleW( NULL );
+	if ( hModule == NULL ) {
+		printf( "Fatal Error: GetModuleHandle failed\r\n" );
+		std::terminate( );
+		}
 
-	if ( hModule != NULL ) {
-		int ass = GetBrightness (  );
+	int ass = GetBrightness(  );
 
-		std::cout << "Got brightness: " << ass << " via WMI" << std::endl;
+	std::cout << "Got brightness: " << ass << " via WMI" << std::endl;
+	Sleep( 100 );
+	bool getBrightSucess = ddcGetBrightness( getBrightInt );
+
+	if ( !getBrightSucess ) {
+		char msg[] = "Failed to get brightness via DDC/CI!";
+		printError( msg );
 		Sleep( 100 );
-		bool getBrightSucess = ddcGetBrightness ( getBrightInt );
+		}	
 
-		if ( !getBrightSucess ) {
-			char msg[] = "Failed to get brightness via DDC/CI!";
-			printError( msg );
-			Sleep( 100 );
-			}	
-
-		else if ( getBrightSucess ) {
-			std::cout << "Got brightness: " << getBrightInt << " via DDC/CI" << std::endl;
-			Sleep( 100 );
-			}
-		DWORD newBrightness = 55;
-		if ( !ddcSetBrightness( newBrightness ) ) {
-			std::cout << "Failed to set brightness " << newBrightness << " via DDC/CI!" << std::endl << std::endl;
-			Sleep( 100 );
-			}
-		else {
-			std::cout << "Successfully set brightness " << newBrightness << "via DDC/CI!" << std::endl;
-			Sleep( 100 );
-			if ( !ddcSetBrightness( DWORD( ass ) ) ) {
-				std::cout << "\tFailed to reset brightness to " << ass << "via DDC/CI!" << std::endl << std::endl;
-				}
-			}
-		SetBrightness ( 0 );
-		Sleep ( 100 );
-		SetBrightness ( 100 );
-		Sleep ( 100 );
-		SetBrightness ( 0 );
-		Sleep ( 100 );
-		SetBrightness ( ass );
+	else if ( getBrightSucess ) {
+		std::cout << "Got brightness: " << getBrightInt << " via DDC/CI" << std::endl;
+		Sleep( 100 );
+		}
+	DWORD newBrightness = 55;
+	if ( !ddcSetBrightness( newBrightness ) ) {
+		std::cout << "Failed to set brightness " << newBrightness << " via DDC/CI!" << std::endl << std::endl;
+		Sleep( 100 );
 		}
 	else {
-		std::cout << "Fatal Error: GetModuleHandle failed" << std::endl << std::endl;
+		std::cout << "Successfully set brightness " << newBrightness << "via DDC/CI!" << std::endl;
+		Sleep( 100 );
+		if ( !ddcSetBrightness( DWORD( ass ) ) ) {
+			std::cout << "\tFailed to reset brightness to " << ass << "via DDC/CI!" << std::endl << std::endl;
+			}
 		}
-	std::cout << std::endl;
-	//return 0;
+	SetBrightness ( 0 );
+	Sleep ( 100 );
+	SetBrightness ( 100 );
+	Sleep ( 100 );
+	SetBrightness ( 0 );
+	Sleep ( 100 );
+	SetBrightness ( ass );
 	}
 
