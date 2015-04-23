@@ -18,6 +18,8 @@
 #include <iostream>
 
 
+//define SCOPE_GUARD_DEBUGGING for enhanced scope guard debugging.
+#include "ScopeGuard.h"
 
 //what the fuck?
 void printError( _In_z_ PCSTR const msg ) {
@@ -141,11 +143,16 @@ int GetBrightness ( ) {
 		return -1;
 		}
 
+	auto pathguard = SCOPEGUARD_INSTANCE( [ &] { SysFreeString( path ); path = NULL; } );
+
 	BSTR ClassPath = SysAllocString( L"WmiMonitorBrightness" );
 	if ( ClassPath == NULL ) {
 		printf( "failed to allocate ClassPath BSTR!\r\n" );
 		return -1;
 		}
+
+	auto classPathguard = SCOPEGUARD_INSTANCE( [ &] { SysFreeString( ClassPath ); ClassPath = NULL; } );
+
 
 	BSTR bstrQuery = SysAllocString( L"Select * from WmiMonitorBrightness" );
 	if ( bstrQuery == NULL ) {
@@ -153,13 +160,19 @@ int GetBrightness ( ) {
 		return -1;
 		}
 
+	auto queryGuard = SCOPEGUARD_INSTANCE( [ &] { SysFreeString( bstrQuery ); bstrQuery = NULL; } );
 
 	// Initialize COM and connect up to CIMOM
 	const HRESULT initResult = CoInitialize( 0 );
 	if ( FAILED ( initResult ) ) {
 		printf( "Failed to initialize COM!\r\n" );
+		if ( initResult == S_FALSE ) {
+			CoUninitialize( );
+			}
 		return -1;
 		}
+
+	auto comGuard = SCOPEGUARD_INSTANCE( [ &] { CoUninitialize( ); } );
 
 	//  NOTE:
 	//  When using asynchronous WMI API's remotely in an environment where the "Local System" account has no network identity (such as non-Kerberos domains), the authentication level of RPC_C_AUTHN_LEVEL_NONE is needed. However, lowering the authentication level to RPC_C_AUTHN_LEVEL_NONE makes your application less secure. It is wise to use semi-synchronous API's for accessing WMI data and events instead of the asynchronous ones.
@@ -171,39 +184,36 @@ int GetBrightness ( ) {
 		return -1;
 		}
 
-	int ret = -1;
+	
 
-	IWbemLocator         *pLocator    = NULL;
-	IEnumWbemClassObject *pEnum       = NULL;
-	IWbemServices        *pNamespace  = 0;
-
-
-
-	const HRESULT createInstanceResult = CoCreateInstance( CLSID_WbemLocator, 0, CLSCTX_INPROC_SERVER, IID_IWbemLocator, ( LPVOID * ) &pLocator );
+	PVOID pLocator_temp = NULL;
+	const HRESULT createInstanceResult = CoCreateInstance( CLSID_WbemLocator, 0, CLSCTX_INPROC_SERVER, IID_IWbemLocator, &pLocator_temp );
 	if ( FAILED ( createInstanceResult ) ) {
 		printf( "CoCreateInstance failed!\r\n" );
-		CoUninitialize( );
 		return -1;
 		}
 
+	IWbemLocator* pLocator = static_cast<IWbemLocator*>( pLocator_temp );
 
-	if ( !path || !ClassPath || !bstrQuery) {
-		std::cout << "Something went wrong when initializing path, ClassPath, and bstrQuery." << std::endl;
-		goto cleanup;
-		}
+	auto locatorGuard = SCOPEGUARD_INSTANCE( [ &] { pLocator->Release( ); } );
 
+
+	IWbemServices* pNamespace = NULL;
 
 	const HRESULT connectServerResult = pLocator->ConnectServer( path, NULL, NULL, NULL, 0, NULL, NULL, &pNamespace );
 	if ( connectServerResult != WBEM_S_NO_ERROR ) {
 		printf( "ConnectServer failed!\r\n" );
-		goto cleanup;
+		return -1;
 		}
+
+
+	auto namespaceGuard = SCOPEGUARD_INSTANCE( [ &] { pNamespace->Release( ); } );
 
 	const HRESULT setProxyBlanketResult = CoSetProxyBlanket( pNamespace, RPC_C_AUTHN_WINNT, RPC_C_AUTHZ_NONE, NULL, RPC_C_AUTHN_LEVEL_PKT, RPC_C_IMP_LEVEL_IMPERSONATE, NULL, EOAC_NONE );
 
 	if ( setProxyBlanketResult != WBEM_S_NO_ERROR ) {
 		printf( "CoSetProxyBlanket failed!\r\n" );
-		goto cleanup;
+		return -1;
 		}
 
 	//Following comment kept for hilarity.
@@ -218,6 +228,9 @@ int GetBrightness ( ) {
 		NULL:							Context
 		pEnum:							Enumeration Interface
 	*/
+	
+	IEnumWbemClassObject *pEnum = NULL;
+
 	const HRESULT execQueryResult = pNamespace->ExecQuery (
 								_bstr_t ( L"WQL" ),
 								bstrQuery,
@@ -231,11 +244,13 @@ int GetBrightness ( ) {
 		goto cleanup;
 		}
 
+	
 	hr = WBEM_S_NO_ERROR;
 
 	while ( WBEM_S_NO_ERROR == hr ) {
+		int ret = -1;
 		ULONG ulReturned;
-		IWbemClassObject *pObj;
+		IWbemClassObject* pObj;
 
 		/*
 		Next: 
@@ -245,10 +260,10 @@ int GetBrightness ( ) {
 				pObj:			Returned Object
 				ulReturned:		Number of object returned
 		*/
-		hr = pEnum->Next ( WBEM_INFINITE, 1, &pObj, &ulReturned );
+		hr = pEnum->Next( WBEM_INFINITE, 1, &pObj, &ulReturned );
 
 		if ( hr != WBEM_S_NO_ERROR ) {
-			goto cleanup;
+			return -1;
 			}
 
 		VARIANT var1;
@@ -263,25 +278,12 @@ int GetBrightness ( ) {
 		ret = V_UI1 ( &var1 );
 		VariantClear ( &var1 );
 		if ( hr != WBEM_S_NO_ERROR ) {
-			goto cleanup;
+			return ret;
 			}
 		}
 
 cleanup:
-	std::cout << "GetBrightness cleanup initiated!" << std::endl;
-	SysFreeString ( path );
-	SysFreeString ( ClassPath );
-	SysFreeString ( bstrQuery );
-
-	if ( pLocator ) {
-		pLocator->Release( );
-		}
-	if ( pNamespace ) {
-		pNamespace->Release( );
-		}
-	CoUninitialize( );
-
-	return ret;
+	return -1;
 	}
 
 bool SetBrightness( int val ) {
