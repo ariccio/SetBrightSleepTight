@@ -24,12 +24,6 @@
 #error already defined!
 #endif
 
-#ifndef WDS_WRITES_TO_STACK
-#define WDS_WRITES_TO_STACK( strSize, chars_written ) _Out_writes_z_( strSize ) _Pre_writable_size_( strSize ) _Post_readable_size_( chars_written ) _Pre_satisfies_( strSize >= chars_written ) _Post_satisfies_( _Old_( chars_written ) <= chars_written )
-#else
-#error already defined!
-#endif
-
 
 //On returning E_FAIL, call GetLastError for details. That's not my idea!
 _Success_( SUCCEEDED( return ) ) HRESULT CStyle_GetLastErrorAsFormattedMessage( _Out_writes_z_( strSize ) _Pre_writable_size_( strSize ) PWSTR psz_formatted_error, _In_range_( 128, 32767 ) const rsize_t strSize, const DWORD error = GetLastError( ) );

@@ -34,10 +34,18 @@
 
 
 //On returning E_FAIL, call GetLastError for details. That's not my idea! //TODO: mark as only returning S_OK, E_FAIL
-_Success_( SUCCEEDED( return ) ) HRESULT CStyle_GetLastErrorAsFormattedMessage( _Out_writes_z_( strSize ) _Pre_writable_size_( strSize ) PWSTR psz_formatted_error, _In_range_( 128, 32767 ) const rsize_t strSize, const DWORD error ) {
+_Success_( SUCCEEDED( return ) ) HRESULT CStyle_GetLastErrorAsFormattedMessage( _Out_writes_z_( strSize ) _Pre_writable_size_( strSize ) PWSTR psz_formatted_error, _In_range_( 128, 32767 ) const rsize_t strSize, _In_ const DWORD error ) {
 	//const auto err = GetLastError( );
 	const auto err = error;
-	const auto ret = FormatMessageW( FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, err, MAKELANGID( LANG_NEUTRAL, SUBLANG_DEFAULT ), psz_formatted_error, static_cast<DWORD>( strSize ), NULL );
+	const auto ret = FormatMessageW( 
+		( FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS ), 
+		NULL, 
+		err, 
+		MAKELANGID( LANG_NEUTRAL, SUBLANG_DEFAULT ), 
+		psz_formatted_error, 
+		static_cast<DWORD>( strSize ), 
+		NULL );
+
 	if ( ret != 0 ) {
 		static_assert( SUCCEEDED( S_OK ), "CStyle_GetLastErrorAsFormattedMessage doesn't return a valid success code!" );
 		return S_OK;
@@ -46,12 +54,12 @@ _Success_( SUCCEEDED( return ) ) HRESULT CStyle_GetLastErrorAsFormattedMessage( 
 	
 	const rsize_t err_msg_buff_size = 512;
 	_Null_terminated_ char err_msg_buff[ err_msg_buff_size ] = { 0 };
-	const HRESULT output_error_message_format_result = StringCchPrintfA( err_msg_buff, err_msg_buff_size, "WDS: FormatMessageW failed with error code: `%lu`!!\r\n", error_err );
-	if ( SUCCEEDED( output_error_message_format_result ) ) {
+	const HRESULT fmt_res = StringCchPrintfA( err_msg_buff, err_msg_buff_size, "WDS: FormatMessageW failed with error code: `%lu`!!\r\n", error_err );
+	if ( SUCCEEDED( fmt_res ) ) {
 		OutputDebugStringA( err_msg_buff );
 		}
 	else {
-		WDS_ASSERT_EXPECTED_STRING_FORMAT_FAILURE_HRESULT( output_error_message_format_result );
+		WDS_ASSERT_EXPECTED_STRING_FORMAT_FAILURE_HRESULT( fmt_res );
 		OutputDebugStringA( "WDS: FormatMessageW failed, and THEN formatting the error message for FormatMessageW failed!\r\n" );
 		std::terminate( );
 		}
@@ -63,28 +71,19 @@ _Success_( SUCCEEDED( return ) ) HRESULT CStyle_GetLastErrorAsFormattedMessage( 
 
 
 //what the fuck?
-void printError( _In_z_ PCSTR const msg ) {
-	//TCHAR sysMsg[ 256 ];
+void printError( ) {
 	const DWORD lastErr = GetLastError( );
-	//FormatMessage( FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, lastErr, MAKELANGID( LANG_NEUTRAL, SUBLANG_DEFAULT ), sysMsg, 256, NULL );
-	//std::cout << std::endl << msg << "--Failed with error: " << lastErr << " (" << sysMsg << ")" << std::endl << std::endl;
 
 	const rsize_t strBufferSize = 512u;
 	wchar_t errBuffer[ strBufferSize ] = { 0 };
 	const HRESULT fmt_res = CStyle_GetLastErrorAsFormattedMessage( errBuffer, strBufferSize, lastErr );
 	if ( SUCCEEDED( fmt_res ) ) {
 		//OutputDebugStringW( errBuffer );
-		wprintf( L"%S--failed with error: %u\r\n\ttext: %s\r\n\r\n", msg, lastErr, errBuffer );
+		wprintf( L"failed with error: %u\r\n\ttext: %s\r\n\r\n", lastErr, errBuffer );
 		return;
 		}
 	printf( "printError - DOUBLE FAULT!\r\n" );
 	std::terminate( );
-	}
-
-//what the double fuck?
-void printError() {
-	//char msg[1] = { };
-	printError( "" );
 	}
 
 void printCOMerror( ) {
@@ -239,7 +238,7 @@ bool ddcGetBrightness ( ) {
 
 	}
 
-bool ddcSetBrightness ( const DWORD dwNewBrightness) {
+bool ddcSetBrightness ( _In_ const DWORD dwNewBrightness) {
 	//HMONITOR hMonitor = NULL;
 
 	//DWORD pdwMinimumBrightness = 0;
@@ -477,7 +476,7 @@ int GetBrightness ( ) {
 	}
 
 _Success_( return )
-bool SetBrightness( int val ) {
+bool SetBrightness( const int val ) {
 	
 	printf( "Attempting to set brightness: %i via WMI\r\n", val );
 	
@@ -536,15 +535,13 @@ bool SetBrightness( int val ) {
 
 	// Initialize COM and connect up to CIMOM
 
+	//static_assert( FAILED( S_FALSE ), "" );
+
 	const HRESULT initResult = CoInitialize( 0 );
 	if ( FAILED( initResult ) ) {
 		printf( "Failed to initialize COM!\r\n" );
-		if ( initResult == S_FALSE ) {
-			CoUninitialize( );
-			}
 		return false;
 		}
-
 
 	//Somehow we're leaking here?
 	auto comGuard = SCOPEGUARD_INSTANCE( [ &] { CoUninitialize( ); } );
@@ -629,107 +626,118 @@ bool SetBrightness( int val ) {
 
 	static_assert( SUCCEEDED( WBEM_S_NO_ERROR ), "" );
 
-	while ( SUCCEEDED( hr ) ) {
-		ULONG ulReturned;
-		IWbemClassObject *pObj;
+	//while ( SUCCEEDED( hr ) ) {
 
-		//Get the Next Object from the collection
-		//On [Next] failure, you can obtain any available information from the COM function GetErrorInfo.
-		hr = pEnum->Next( WBEM_INFINITE, 1, &pObj, &ulReturned );
+	ULONG ulReturned;
+	IWbemClassObject *pObj;
 
-		if ( hr != WBEM_S_NO_ERROR ) {
-			printf( "\tSomething went wrong in pEnum->Next!\r\n" );
-			printCOMerror( );
-			return false;
-			}
+	//Get the Next Object from the collection
+	//On [Next] failure, you can obtain any available information from the COM function GetErrorInfo.
+	const HRESULT enumNext = pEnum->Next( WBEM_INFINITE, 1, &pObj, &ulReturned );
 
-		auto pObjGuard = SCOPEGUARD_INSTANCE( [&] { pObj->Release( ); pObj = NULL; } );
-
-		IWbemClassObject*     pClass     = NULL;
-
-		// Get the class object
-		hr = pNamespace->GetObject( ClassPath, 0, NULL, &pClass, NULL );
-		if ( hr != WBEM_S_NO_ERROR ) {
-			printf( "\tSomething went wrong in pNamespace->GetObject!\r\n" );
-			return false;
-			}
-
-		auto pClassGuard = SCOPEGUARD_INSTANCE( [ &] { pClass->Release( ); pClass = NULL; } );
-
-		IWbemClassObject*     pInClass   = NULL;
-		// Get the input argument and set the property
-		hr = pClass->GetMethod( MethodName, 0, &pInClass, NULL );
-		if ( hr != WBEM_S_NO_ERROR ) {
-			printf( "\tSomething went wrong in pClass->GetMethod!\r\n" );
-			return false;
-			}
-
-		auto inClassGuard = SCOPEGUARD_INSTANCE( [ &] { pInClass->Release( ); pInClass = NULL; } );
-
-
-		IWbemClassObject*     pInInst    = NULL;
-
-
-		hr = pInClass->SpawnInstance( 0, &pInInst );
-		if ( hr != WBEM_S_NO_ERROR ) {
-			printf( "\tSomething went wrong in pInClass->SpawnInstance!\r\n" );
-			return false;
-			}
-
-		auto instGuard = SCOPEGUARD_INSTANCE( [ &] { pInInst->Release( ); pInInst = NULL; } );
-
-		VARIANT var1;
-		VariantInit( &var1 );
-
-		V_VT( &var1 ) = VT_BSTR;
-		V_BSTR( &var1 ) = SysAllocString( L"0" );
-		hr = pInInst->Put( ArgName0, 0, &var1, CIM_UINT32 ); //CIM_UINT64
-
-		VariantClear( &var1 );
-		if ( hr != WBEM_S_NO_ERROR ) {
-			printf( "\tSomething went wrong in pInInst->Put!\r\n" );
-			return false;
-			}
-
-		VARIANT var;
-		VariantInit( &var );
-
-		V_VT( &var ) = VT_BSTR;
-		WCHAR buf[ 10 ] = { 0 };
-		swprintf_s( buf, _countof( buf ), L"%ld", val );
-		V_BSTR( &var ) = SysAllocString( buf );
-		hr = pInInst->Put( ArgName1, 0, &var, CIM_UINT8 );
-
-		VariantClear( &var );
-		
-		if ( hr != WBEM_S_NO_ERROR ) {
-			printf( "\tSomething went wrong in pInInst->Put!\r\n" );
-			return false;
-			}
-		
-		// Call the method
-		VARIANT pathVariable;
-		VariantInit( &pathVariable );
-
-		hr = pObj->Get( _bstr_t( L"__PATH" ), 0, &pathVariable, NULL, NULL );
-		
-		if ( hr != WBEM_S_NO_ERROR ) {
-			printf( "\tSomething went wrong in pObj->Get!\r\n" );
-			return false;
-			}
-		
-		hr = pNamespace->ExecMethod( pathVariable.bstrVal, MethodName, 0, NULL, pInInst, NULL, NULL );
-		
-		VariantClear( &pathVariable );
-		
-		if ( hr != WBEM_S_NO_ERROR ) {
-			printf( "\tSomething went wrong in pNamespace->ExecMethod!\r\n" );
-			return false;
-			}
-		return true;
+	if ( FAILED( enumNext ) ) {
+		printf( "\tSomething went wrong in pEnum->Next!\r\n" );
+		printCOMerror( );
+		return false;
 		}
 
-	return false;
+	auto pObjGuard = SCOPEGUARD_INSTANCE( [&] { pObj->Release( ); pObj = NULL; } );
+
+	IWbemClassObject*     pClass     = NULL;
+
+	// Get the class object
+	const HRESULT getObjResult = pNamespace->GetObject( ClassPath, 0, NULL, &pClass, NULL );
+	if ( FAILED( getObjResult ) ) {
+		printf( "\tSomething went wrong in pNamespace->GetObject!\r\n" );
+		return false;
+		}
+
+	auto pClassGuard = SCOPEGUARD_INSTANCE( [ &] { pClass->Release( ); pClass = NULL; } );
+
+	IWbemClassObject*     pInClass   = NULL;
+	// Get the input argument and set the property
+	const HRESULT getMethod = pClass->GetMethod( MethodName, 0, &pInClass, NULL );
+	if ( FAILED( getMethod ) ) {
+		printf( "\tSomething went wrong in pClass->GetMethod!\r\n" );
+		return false;
+		}
+
+	auto inClassGuard = SCOPEGUARD_INSTANCE( [ &] { pInClass->Release( ); pInClass = NULL; } );
+
+
+	IWbemClassObject*     pInInst    = NULL;
+
+
+	const HRESULT spawnRes = pInClass->SpawnInstance( 0, &pInInst );
+	if ( FAILED( spawnRes ) ) {
+		printf( "\tSomething went wrong in pInClass->SpawnInstance!\r\n" );
+		return false;
+		}
+
+	auto instGuard = SCOPEGUARD_INSTANCE( [ &] { pInInst->Release( ); pInInst = NULL; } );
+
+	VARIANT var1;
+	VariantInit( &var1 );
+
+	V_VT( &var1 ) = VT_BSTR;
+	V_BSTR( &var1 ) = SysAllocString( L"0" );
+	const HRESULT putRes = pInInst->Put( ArgName0, 0, &var1, CIM_UINT32 ); //CIM_UINT64
+	VariantClear( &var1 );
+	if ( FAILED( putRes ) ) {
+		printf( "pInInst->Put failed!!\r\n" );
+		return false;
+		}
+		
+
+	VARIANT var;
+	VariantInit( &var );
+
+	V_VT( &var ) = VT_BSTR;
+	const rsize_t bufSize = 20;
+	wchar_t buf[ bufSize ] = { 0 };
+		
+	//swprintf_s( buf, bufSize, L"%ld", val );
+	const HRESULT fmt_res = StringCchPrintfW( buf, bufSize, L"%ld", val );
+	if ( FAILED( fmt_res ) ) {
+		VariantClear( &var );
+		printf( "Failed to format number %ld into buffer!\r\n", val );
+		return false;
+		}
+
+
+	V_BSTR( &var ) = SysAllocString( buf );
+	const HRESULT putArgOne = pInInst->Put( ArgName1, 0, &var, CIM_UINT8 );
+
+	VariantClear( &var );
+		
+	if ( FAILED( putArgOne ) ) {
+		printf( "\tSomething went wrong in pInInst->Put!\r\n" );
+		return false;
+		}
+		
+	// Call the method
+	VARIANT pathVariable;
+	VariantInit( &pathVariable );
+
+	const HRESULT getPath = pObj->Get( _bstr_t( L"__PATH" ), 0, &pathVariable, NULL, NULL );
+		
+	if ( FAILED( getPath ) ) {
+		VariantClear( &pathVariable );
+		printf( "\tSomething went wrong in pObj->Get!\r\n" );
+		return false;
+		}
+		
+	const HRESULT execMethod = pNamespace->ExecMethod( pathVariable.bstrVal, MethodName, 0, NULL, pInInst, NULL, NULL );
+		
+	VariantClear( &pathVariable );
+		
+	if ( FAILED( execMethod ) ) {
+		printf( "\tSomething went wrong in pNamespace->ExecMethod!\r\n" );
+		return false;
+		}
+	return true;
+		//}
+	//return false;
 	}
 
 void main ( ) {
