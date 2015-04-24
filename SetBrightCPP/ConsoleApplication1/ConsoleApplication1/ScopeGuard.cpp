@@ -50,6 +50,7 @@ void trace_out( _In_z_ PCSTR const func_expr, _In_z_ PCSTR const file_name, _In_
 	UNREFERENCED_PARAMETER( file_name );
 	UNREFERENCED_PARAMETER( func_name );
 	UNREFERENCED_PARAMETER( line_number );
+	UNREFERENCED_PARAMETER( func_expr );
 #endif
 	}
 #endif

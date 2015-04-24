@@ -729,7 +729,7 @@ bool SetBrightness( int val ) {
 		return true;
 		}
 
-		return false;
+	return false;
 	}
 
 void main ( ) {
